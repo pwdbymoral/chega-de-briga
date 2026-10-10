@@ -1,0 +1,197 @@
+export type HouseholdRole = "responsavel" | "morador";
+export type AccessSource = "lista" | "convite_admin" | "convite_morador";
+export type UserStatus = "ativo" | "suspenso" | "excluido";
+export type InvitationStatus = "pendente" | "aceito" | "revogado" | "expirado";
+export type Period = 7 | 30 | 90;
+export type SourceFilter = AccessSource | "todos";
+export type SizeFilter = "todos" | "1" | "2" | "3+";
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  status: UserStatus;
+  source: AccessSource;
+  accessId: string;
+  createdAt: string;
+  lastSeenAt?: string;
+}
+export interface Household {
+  id: string;
+  name: string;
+  createdAt: string;
+}
+export interface Membership {
+  userId: string;
+  householdId: string;
+  role: HouseholdRole;
+  joinedAt: string;
+}
+export interface AllowEntry {
+  id: string;
+  email: string;
+  addedAt: string;
+  revokedAt?: string;
+}
+export interface Invitation {
+  id: string;
+  email: string;
+  source: Exclude<AccessSource, "lista">;
+  householdId?: string;
+  inviterId?: string;
+  status: InvitationStatus;
+  createdAt: string;
+  expiresAt: string;
+  acceptedAt?: string;
+}
+export interface TaskMeta {
+  id: string;
+  householdId: string;
+  createdAt: string;
+  dueAt: string;
+  completedAt?: string;
+}
+export interface ActivityEvent {
+  id: string;
+  userId?: string;
+  householdId?: string;
+  type:
+    | "conta_criada"
+    | "acesso"
+    | "entrada_casa"
+    | "tarefa_criada"
+    | "tarefa_concluida";
+  at: string;
+}
+export interface AuditEvent {
+  id: string;
+  action: string;
+  targetId: string;
+  at: string;
+}
+export interface DataSet {
+  users: User[];
+  households: Household[];
+  memberships: Membership[];
+  allowlist: AllowEntry[];
+  invitations: Invitation[];
+  tasks: TaskMeta[];
+  activity: ActivityEvent[];
+  audit: AuditEvent[];
+}
+export interface UserPage {
+  items: User[];
+  total: number;
+  page: number;
+  pages: number;
+}
+export interface UserQuery {
+  search: string;
+  status: UserStatus | "todos";
+  page: number;
+}
+export interface AnalyticsFilter {
+  period: Period;
+  source: SourceFilter;
+  size: SizeFilter;
+}
+export interface FunnelStep {
+  label: string;
+  count: number;
+  denominator: number;
+}
+export interface CohortRow {
+  week: string;
+  houses: number;
+  week1?: number;
+  week1Denominator: number;
+  week4?: number;
+  week4Denominator: number;
+}
+export interface Analytics {
+  filter: AnalyticsFilter;
+  from: string;
+  to: string;
+  sampleHouses: number;
+  people: FunnelStep[];
+  activation: FunnelStep[];
+  weeklyActive: { week: string; houses: number; denominator: number }[];
+  cohorts: CohortRow[];
+  overdueOpen: number;
+  tasksOpen: number;
+  insights: string[];
+}
+
+export interface AdminGateway {
+  login(email: string, password: string): Promise<void>;
+  session(): Promise<boolean>;
+  logout(): Promise<void>;
+  users(query: UserQuery): Promise<UserPage>;
+  user(
+    id: string,
+  ): Promise<{
+    user: User;
+    memberships: Membership[];
+    activity: ActivityEvent[];
+    audit: AuditEvent[];
+  }>;
+  updateUser(id: string, patch: Pick<User, "name" | "email">): Promise<void>;
+  setUserStatus(id: string, status: UserStatus): Promise<void>;
+  setMembershipRole(
+    userId: string,
+    householdId: string,
+    role: HouseholdRole,
+  ): Promise<void>;
+  access(): Promise<{ allowlist: AllowEntry[]; invitations: Invitation[] }>;
+  addAllowed(email: string): Promise<void>;
+  revokeAllowed(id: string): Promise<void>;
+  invite(email: string, householdId?: string): Promise<void>;
+  revokeInvite(id: string): Promise<void>;
+  resendInvite(id: string): Promise<void>;
+  households(): Promise<Household[]>;
+  household(
+    id: string,
+  ): Promise<{
+    household: Household;
+    memberships: Membership[];
+    members: User[];
+    tasks: TaskMeta[];
+    activity: ActivityEvent[];
+  }>;
+  analytics(filter: AnalyticsFilter): Promise<Analytics>;
+}
+
+export interface InvitationPreview {
+  id: string;
+  email: string;
+  source: Exclude<AccessSource, "lista">;
+  householdName?: string;
+  status: InvitationStatus;
+  expiresAt: string;
+}
+
+export interface AuthSession {
+  user: Pick<User, "id" | "name" | "email">;
+  memberships: Array<{
+    householdId: string;
+    householdName: string;
+    role: HouseholdRole;
+  }>;
+  canCreateHouse: boolean;
+}
+
+export interface AuthGateway {
+  invitation(id: string): Promise<InvitationPreview>;
+  register(input: {
+    name: string;
+    email: string;
+    password: string;
+    invitationId?: string;
+  }): Promise<AuthSession>;
+  login(email: string, password: string): Promise<AuthSession>;
+  session(): Promise<AuthSession | null>;
+  logout(): Promise<void>;
+  requestPasswordReset(email: string): Promise<string | undefined>;
+  resetPassword(token: string, password: string): Promise<void>;
+  createHouse(name: string): Promise<AuthSession>;
+}

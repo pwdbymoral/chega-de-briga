@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160">
+  <rect width="160" height="160" rx="40" fill="#2447E8"/>
+  <path d="M25 41 C51 41 55 78 83 80 H134" fill="none" stroke="#FFFFFF" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.08;0.62;1" dur="0.9s" fill="freeze"/>
+    <animateTransform attributeName="transform" type="translate" values="-28 -16;-28 -16;2 0;0 0" keyTimes="0;0.08;0.72;1" dur="0.9s" fill="freeze"/>
+  </path>
+  <path d="M25 119 C51 119 55 82 83 80" fill="none" stroke="#D8B3EB" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.2;0.7;1" dur="0.9s" fill="freeze"/>
+    <animateTransform attributeName="transform" type="translate" values="-24 18;-24 18;1 -1;0 0" keyTimes="0;0.2;0.78;1" dur="0.9s" fill="freeze"/>
+  </path>
+  <path d="M64 5C70 39 82 53 123 64C82 75 70 89 64 123C58 89 46 75 5 64C46 53 58 39 64 5Z" transform="translate(104 30) scale(.3)" fill="#FFD86A" opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.5;0.62;1" dur="0.9s" fill="freeze"/>
+  </path>
+</svg>

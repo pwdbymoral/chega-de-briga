@@ -1,0 +1,107 @@
+.select {
+  position: relative;
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+}
+.label {
+  color: var(--color-text);
+  font-size: var(--type-sm);
+  font-weight: 700;
+}
+.trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 48px;
+  padding: 0.55rem 0.75rem;
+  border: var(--stroke) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+}
+.trigger:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.trigger svg { flex: none; }
+.value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.compact {
+  display: block;
+  width: 48px;
+  min-width: 48px;
+}
+.compact .label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.compact .trigger {
+  justify-content: center;
+  width: 48px;
+  padding: 0;
+  border-radius: var(--radius-pill);
+}
+.options {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  display: grid;
+  width: max(100%, 112px);
+  max-width: min(320px, calc(100vw - 16px));
+  padding: 0.25rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: var(--stroke) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  box-shadow: 4px 4px 0 var(--color-shadow);
+}
+.compact .options {
+  width: 112px;
+}
+.optionsRight {
+  right: 0;
+  left: auto;
+}
+.optionsUp {
+  top: auto;
+  bottom: calc(100% + 0.5rem);
+}
+.option {
+  width: 100%;
+  min-height: 48px;
+  padding: 0.5rem;
+  border: 0;
+  border-radius: calc(var(--radius-control) - 0.25rem);
+  background: transparent;
+  color: var(--color-text);
+  font-size: var(--type-sm);
+  font-weight: 700;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.option:hover { background: var(--color-surface-accent); }
+.option:focus-visible { outline-offset: -3px; }
+.option[aria-selected="true"] {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+.option:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

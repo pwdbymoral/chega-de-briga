@@ -1,0 +1,14 @@
+{
+  "name": "@chega-de-briga/design-system",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./tokens.css": "./tokens.css",
+    "./tokens.native": "./generated/tokens.native.ts"
+  },
+  "scripts": {
+    "tokens:build": "node build-tokens.mjs",
+    "tokens:check": "node build-tokens.mjs --check"
+  }
+}

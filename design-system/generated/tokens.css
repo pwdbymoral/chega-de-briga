@@ -1,0 +1,72 @@
+/* Gerado de tokens/source.json. Edite a fonte e execute pnpm tokens:build. */
+:root {
+  color-scheme: light;
+  --brand-blue: #2447e8;
+  --brand-lilac: #d8b3eb;
+  --brand-white: #ffffff;
+  --brand-sun: #ffd86a;
+  --brand-ink: #17264d;
+  --type-xs: 0.75rem;
+  --type-sm: 0.875rem;
+  --type-body: 1rem;
+  --type-lead: 1.25rem;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --radius-control: 0.875rem;
+  --radius-card: 1.375rem;
+  --radius-pill: 999px;
+  --stroke: 0.125rem;
+  --motion-fast: 140ms;
+  --motion-base: 240ms;
+  --motion-emphasis: 420ms;
+  --color-bg: #f7f9ff;
+  --color-surface: #ffffff;
+  --color-surface-raised: #e8efff;
+  --color-surface-accent: #f4e9f8;
+  --color-text: #17264d;
+  --color-text-muted: #4d5d82;
+  --color-primary: #2447e8;
+  --color-on-primary: #ffffff;
+  --color-accent: #d8b3eb;
+  --color-on-accent: #17264d;
+  --color-border: #6a7ca6;
+  --color-border-soft: #c9d4eb;
+  --color-focus: #1f3daa;
+  --color-success-bg: #e8f7ee;
+  --color-success-text: #17653d;
+  --color-warning-bg: #fff1c7;
+  --color-warning-text: #774700;
+  --color-danger-bg: #ffe8ee;
+  --color-danger-text: #a12644;
+  --color-shadow: #17264d;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-bg: #0b1530;
+  --color-surface: #162445;
+  --color-surface-raised: #21345a;
+  --color-surface-accent: #3a2c4d;
+  --color-text: #f7f8ff;
+  --color-text-muted: #cbd5ef;
+  --color-primary: #8ba8ff;
+  --color-on-primary: #101a38;
+  --color-accent: #e0b9f0;
+  --color-on-accent: #22132e;
+  --color-border: #8ea2cc;
+  --color-border-soft: #4d5e82;
+  --color-focus: #e0b9f0;
+  --color-success-bg: #183c30;
+  --color-success-text: #8ceab8;
+  --color-warning-bg: #4a321a;
+  --color-warning-text: #ffda89;
+  --color-danger-bg: #4d2632;
+  --color-danger-text: #ffb4c1;
+  --color-shadow: #050a19;
+}

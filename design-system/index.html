@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Manual de marca e design system do Chega de Briga." />
+    <link rel="icon" type="image/svg+xml" href="./assets/simbolo.svg" />
+    <link rel="apple-touch-icon" href="./assets/apple-touch-icon.png" />
+    <link rel="stylesheet" href="./tokens.css" />
+    <link rel="stylesheet" href="./styles.css" />
+    <script>
+      try {
+        document.documentElement.dataset.theme = localStorage.getItem("cdb-theme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      } catch {
+        document.documentElement.dataset.theme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+    </script>
+    <title>Chega de Briga — Manual da marca</title>
+  </head>
+  <body>
+    <svg class="icon-sprite" aria-hidden="true" width="0" height="0" xmlns="http://www.w3.org/2000/svg">
+      <symbol id="icon-moon" viewBox="0 0 24 24"><path d="M20.9 13A9 9 0 0 1 11 3.1 9 9 0 1 0 20.9 13Z" /></symbol>
+      <symbol id="icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" /><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42" /></symbol>
+      <symbol id="icon-arrow-up-right" viewBox="0 0 24 24"><path d="M7 17 17 7M7 7h10v10" /></symbol>
+      <symbol id="icon-arrow-down-right" viewBox="0 0 24 24"><path d="m7 7 10 10M17 7v10H7" /></symbol>
+      <symbol id="icon-arrow-down" viewBox="0 0 24 24"><path d="M12 4v16m-7-7 7 7 7-7" /></symbol>
+      <symbol id="icon-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6" /></symbol>
+      <symbol id="icon-x" viewBox="0 0 24 24"><path d="M6 6 18 18M18 6 6 18" /></symbol>
+      <symbol id="icon-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></symbol>
+      <symbol id="icon-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 7v6m0 4h.01" /></symbol>
+    </svg>
+    <a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
+    <header class="site-header">
+      <a class="site-brand" href="#inicio" aria-label="Chega de Briga, voltar ao início">
+        <img src="./assets/simbolo.svg" width="42" height="42" alt="" />
+        <span>chega de <strong>BRIGA</strong></span>
+      </a>
+      <details class="section-menu" open>
+        <summary>Seções</summary>
+        <nav class="section-nav" aria-label="Seções do manual">
+          <a href="#ideia">Ideia</a>
+          <a href="#logos">Logos</a>
+          <a href="#elementos">Elementos</a>
+          <a href="#movimento">Movimento</a>
+          <a href="#cores">Cores</a>
+          <a href="#tipografia">Tipo</a>
+          <a href="#componentes">Componentes</a>
+          <a href="#voz">Voz</a>
+          <a href="#aplicacao">Aplicação</a>
+        </nav>
+      </details>
+      <button class="theme-toggle" type="button" id="theme-toggle">
+        <span class="theme-glyph" aria-hidden="true"><svg class="ui-icon"><use href="#icon-moon" /></svg></span>
+        <span class="theme-label">Modo escuro</span>
+      </button>
+    </header>
+
+    <main id="conteudo">
+      <section class="hero section-shell" id="inicio" aria-labelledby="hero-title">
+        <div class="hero-kicker"><span class="tiny-square" aria-hidden="true"></span> MANUAL DE MARCA <span>01 / 2026</span></div>
+        <div class="hero-grid">
+          <div class="hero-copy">
+            <h1 id="hero-title">A CASA<br />NÃO É UM<br /><span>RINGUE.</span></h1>
+            <p>Combinar, dividir e concluir tarefas sem transformar a louça numa novela.</p>
+            <a class="hero-link" href="#ideia">Conhecer a marca <svg class="ui-icon" aria-hidden="true"><use href="#icon-arrow-down-right" /></svg></a>
+          </div>
+          <div class="hero-art" aria-hidden="true">
+            <div class="poster-note"><span>UM BOM<br />COMBINADO<br />MUDA O JOGO.</span></div>
+            <img class="hero-paths" src="./assets/caminhos.svg" alt="" />
+            <img class="hero-spark" src="./assets/faisca.svg" alt="" />
+            <span class="hero-orbit">CHEGA DE BRIGA • CHEGA DE BRIGA •</span>
+          </div>
+        </div>
+        <div class="hero-footer"><span>GUIA PARA CRIAR COM CONSISTÊNCIA</span><span>DESÇA PARA EXPLORAR <svg class="ui-icon" aria-hidden="true"><use href="#icon-arrow-down" /></svg></span></div>
+      </section>
+
+      <section class="section-shell content-section" id="ideia" aria-labelledby="ideia-title">
+        <div class="section-heading"><span class="eyebrow">01 / POSICIONAMENTO</span><h2 id="ideia-title">Mais combinado.<br /><em>Menos climão.</em></h2></div>
+        <div class="idea-grid">
+          <p class="section-lead">Chega de Briga ajuda pessoas que dividem uma casa a dividir também a responsabilidade por ela. O combinado fica à vista; a cobrança deixa de ser o assunto do dia.</p>
+          <div class="principles">
+            <article><span class="number-tag">01</span><h3>Junto, não em cima</h3><p>O app organiza tarefas entre moradores. A marca conversa como parceira, nunca como fiscal.</p></article>
+            <article><span class="number-tag">02</span><h3>Clareza dá sossego</h3><p>Quem faz, o quê e quando precisam ser óbvios sem pedir uma planilha mental.</p></article>
+            <article><span class="number-tag">03</span><h3>Leveza com propósito</h3><p>A graça abre a conversa. Prazos, erros e próximos passos continuam diretos.</p></article>
+          </div>
+        </div>
+        <div class="concept-strip">
+          <div class="concept-mark"><img src="./assets/simbolo.svg" alt="Símbolo do Chega de Briga: dois caminhos que se encontram" /></div>
+          <div><span class="eyebrow">A IDEIA DO SÍMBOLO</span><h3>Dois caminhos.<br />Um combinado.</h3><p>As duas curvas chegam de pontos diferentes e seguem juntas. O encontro é o foco, não a briga.</p></div>
+          <div class="concept-pills"><span>direta</span><span>irreverente</span><span>coletiva</span></div>
+        </div>
+      </section>
+
+      <section class="section-shell content-section" id="logos" aria-labelledby="logos-title">
+        <div class="section-heading"><span class="eyebrow">02 / ASSINATURA</span><h2 id="logos-title">Uma marca, <em>vários espaços.</em></h2><p>Arquivos SVG com letras convertidas em vetor. Escolha a composição pelo espaço disponível; preserve o desenho e o respiro.</p></div>
+        <div class="logo-grid">
+          <figure class="logo-card logo-card-wide"><div class="logo-stage stage-white"><img src="./assets/logo-principal.svg" alt="Logo principal Chega de Briga" /></div><figcaption><span><strong>Principal</strong><small>Assinatura preferencial</small></span><a href="./assets/logo-principal.svg" download aria-label="Baixar SVG do logo principal">Baixar SVG</a></figcaption></figure>
+          <figure class="logo-card"><div class="logo-stage stage-paper"><img src="./assets/logo-horizontal.svg" alt="Logo horizontal Chega de Briga" /></div><figcaption><span><strong>Horizontal</strong><small>Espaços baixos e largos</small></span><a href="./assets/logo-horizontal.svg" download aria-label="Baixar SVG do logo horizontal">Baixar SVG</a></figcaption></figure>
+          <figure class="logo-card"><div class="logo-stage stage-lilac"><img src="./assets/logo-empilhado.svg" alt="Logo empilhado Chega de Briga" /></div><figcaption><span><strong>Empilhada</strong><small>Cartazes e composições centrais</small></span><a href="./assets/logo-empilhado.svg" download aria-label="Baixar SVG do logo empilhado">Baixar SVG</a></figcaption></figure>
+          <figure class="logo-card"><div class="logo-stage stage-white"><img class="symbol-stage" src="./assets/simbolo.svg" alt="Símbolo isolado Chega de Briga" /></div><figcaption><span><strong>Símbolo</strong><small>Ícone, avatar e espaço curto</small></span><a href="./assets/simbolo.svg" download aria-label="Baixar SVG do símbolo">Baixar SVG</a></figcaption></figure>
+          <figure class="logo-card"><div class="logo-stage stage-white"><img src="./assets/logo-monocromatico.svg" alt="Logo em uma cor escura" /></div><figcaption><span><strong>Uma cor</strong><small>Aplicações claras e impressão</small></span><a href="./assets/logo-monocromatico.svg" download aria-label="Baixar SVG do logo monocromático">Baixar SVG</a></figcaption></figure>
+          <figure class="logo-card"><div class="logo-stage stage-blue"><img src="./assets/logo-invertido.svg" alt="Logo invertido branco" /></div><figcaption><span><strong>Invertida</strong><small>Fundos escuros e azul de marca</small></span><a href="./assets/logo-invertido.svg" download aria-label="Baixar SVG do logo invertido">Baixar SVG</a></figcaption></figure>
+        </div>
+        <div class="rule-grid">
+          <div class="rule-card"><span class="rule-sign" aria-hidden="true"><svg class="ui-icon"><use href="#icon-check" /></svg></span><h3>Faça</h3><p>Deixe uma margem livre de pelo menos ¼ da largura do símbolo. Use o símbolo a partir de 24 px e as assinaturas a partir de 180 px de largura.</p></div>
+          <div class="rule-card"><span class="rule-sign" aria-hidden="true"><svg class="ui-icon"><use href="#icon-x" /></svg></span><h3>Evite</h3><p>Esticar ou girar as assinaturas; refazer as letras; usar o logo colorido sobre fundos que escondam seu contorno; pôr texto dentro do ícone pequeno. O símbolo isolado pode girar em peças expressivas.</p></div>
+        </div>
+      </section>
+
+      <section class="section-shell content-section" id="elementos" aria-labelledby="elementos-title">
+        <div class="section-heading"><span class="eyebrow">03 / LINGUAGEM GRÁFICA</span><h2 id="elementos-title">Pop com <em>direção.</em></h2><p>O encontro dos caminhos se repete em linhas, adesivos e detalhes. Composições podem sair da grade; informação e ações continuam fáceis de achar.</p></div>
+        <div class="elements-grid">
+          <div class="element-board paths-board"><img src="./assets/caminhos.svg" alt="Caminhos gráficos em branco, lilás e amarelo se encontram e seguem" /><span>CAMINHOS / MOVIMENTO</span></div>
+          <div class="element-board spark-board"><img src="./assets/faisca.svg" alt="Faísca amarela de quatro pontas" /><span>FAÍSCA / CONQUISTA</span></div>
+          <div class="element-board sticker-board"><span class="sticker sticker-one">TÁ<br />COMBINADO</span><span class="sticker sticker-two">UFA!</span><small>ADESIVOS / ÊNFASE</small></div>
+        </div>
+        <div class="iconography"><div><span class="eyebrow">ÍCONES</span><h3>Arredondados, diretos e com traço firme.</h3><p>Grade de 24 × 24, traço de 2,5 e extremidades arredondadas. Use ícone com rótulo em ações pouco familiares e escolha o arquivo claro ou escuro pelo fundo.</p></div><div class="icon-list"><figure><img class="icon-light" src="./assets/icone-dividir.svg" alt="" /><img class="icon-dark" src="./assets/icone-dividir-escuro.svg" alt="" /><figcaption>Dividir</figcaption></figure><figure><img class="icon-light" src="./assets/icone-concluir.svg" alt="" /><img class="icon-dark" src="./assets/icone-concluir-escuro.svg" alt="" /><figcaption>Concluir</figcaption></figure><figure><img class="icon-light" src="./assets/icone-tempo.svg" alt="" /><img class="icon-dark" src="./assets/icone-tempo-escuro.svg" alt="" /><figcaption>Prazo</figcaption></figure></div></div>
+        <div class="motion-board" id="movimento"><div><span class="eyebrow">MOVIMENTO</span><h3>Um gesto que explica.</h3><p>Os caminhos se encontram para indicar colaboração. Respostas frequentes são curtas; a celebração fica para a conclusão. Animação nunca atrasa a ação nem substitui o estado em texto.</p><div class="motion-timings"><span>140 ms / resposta</span><span>240 ms / transição</span><span>420 ms / ênfase</span></div></div><div class="motion-demo"><svg viewBox="0 0 160 160" aria-hidden="true"><rect width="160" height="160" rx="40" fill="#2447E8"/><path class="motion-upper" d="M25 41 C51 41 55 78 83 80 H134" fill="none" stroke="#FFFFFF" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/><path class="motion-lower" d="M25 119 C51 119 55 82 83 80" fill="none" stroke="#D8B3EB" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/></svg><button type="button">Aproxime os caminhos</button></div></div>
+      </section>
+
+      <section class="section-shell content-section" id="cores" aria-labelledby="cores-title">
+        <div class="section-heading"><span class="eyebrow">04 / COR E TEMA</span><h2 id="cores-title">Azul pra agir.<br /><em>Lilás pra respirar.</em></h2><p>Branco mantém a interface arejada. O amarelo é pontuação gráfica; não carrega informação sozinho.</p></div>
+        <div class="palette-groups">
+          <div class="palette-group"><h3>Modo claro <span>principal</span></h3><div class="swatches"><div class="swatch swatch-blue"><strong>Azul</strong><small>#2447E8</small></div><div class="swatch swatch-lilac"><strong>Lilás</strong><small>#D8B3EB</small></div><div class="swatch swatch-white"><strong>Branco</strong><small>#FFFFFF</small></div><div class="swatch swatch-ink"><strong>Tinta</strong><small>#17264D</small></div><div class="swatch swatch-sun"><strong>Sol</strong><small>#FFD86A</small></div></div></div>
+          <div class="palette-group"><h3>Modo escuro <span>mesma personalidade</span></h3><div class="swatches"><div class="swatch swatch-night"><strong>Fundo</strong><small>#0B1530</small></div><div class="swatch swatch-night-surface"><strong>Superfície</strong><small>#162445</small></div><div class="swatch swatch-night-blue"><strong>Azul</strong><small>#8BA8FF</small></div><div class="swatch swatch-night-lilac"><strong>Lilás</strong><small>#E0B9F0</small></div><div class="swatch swatch-night-white"><strong>Texto</strong><small>#F7F8FF</small></div></div></div>
+        </div>
+        <div class="token-note"><div><span class="eyebrow">FONTE DE VERDADE</span><h3>Cor de função, não de adivinhação.</h3></div><p>Use <code>--color-text</code>, <code>--color-surface</code>, <code>--color-primary</code> e os demais papéis de <a href="./tokens.css">tokens.css</a>. A paleta de marca é fixa; as cores de interface mudam com o tema.</p></div>
+      </section>
+
+      <section class="section-shell content-section" id="tipografia" aria-labelledby="tipo-title">
+        <div class="section-heading"><span class="eyebrow">05 / TIPOGRAFIA</span><h2 id="tipo-title">Fala alto.<br /><em>Lê fácil.</em></h2></div>
+        <div class="type-grid"><div class="type-specimen display-specimen"><span class="eyebrow">INTER DISPLAY BLACK / TÍTULOS</span><p>CASA<br />EM PAZ.</p><small>Alto impacto em poucas palavras. Use espaço para o texto respirar.</small></div><div class="type-specimen personality-specimen"><span class="eyebrow">COMFORTAA BOLD / EXPRESSÃO</span><p>chega de<br />climão</p><small>Detalhes de marca e chamadas curtas, nunca parágrafos inteiros.</small></div></div>
+        <div class="body-specimen"><div><span class="eyebrow">INTER REGULAR / INTERFACE</span><p>“A louça ficou para hoje. Você pode concluir ou ajustar o prazo.”</p></div><div class="type-scale"><span><b>48–96</b> Cartaz · <code>--type-display</code></span><span><b>32–48</b> Título · <code>--type-title</code></span><span><b>20</b> Destaque · <code>--type-lead</code></span><span><b>16</b> Corpo · <code>--type-body</code></span><span><b>14</b> Auxiliar · <code>--type-sm</code></span></div></div>
+      </section>
+
+      <section class="section-shell content-section" id="componentes" aria-labelledby="componentes-title">
+        <div class="section-heading"><span class="eyebrow">06 / PEÇAS DE INTERFACE</span><h2 id="componentes-title">Bonito de ver.<br /><em>Bom de usar.</em></h2><p>Exemplos isolados para orientar a futura interface. O toque tem área mínima de 48 px; estado e significado também aparecem em texto.</p></div>
+        <div class="component-grid">
+          <article class="component-panel buttons-panel"><span class="panel-tag">AÇÕES</span><h3>Botões com intenção</h3><div class="button-row"><button class="demo-button primary-button" type="button">Criar tarefa <svg class="ui-icon" aria-hidden="true"><use href="#icon-arrow-up-right" /></svg></button><button class="demo-button secondary-button" type="button">Ver detalhes</button><button class="demo-button text-button" type="button">Agora não</button><button class="demo-button primary-button" type="button" disabled>Indisponível</button></div><p class="panel-note">Uma ação principal por contexto. No celular, botões empilhados ocupam a mesma largura; pares curtos, como a paginação, dividem a linha igualmente.</p></article>
+          <article class="component-panel field-panel"><span class="panel-tag">CAMPOS</span><h3>Perguntar sem enrolar</h3><label for="demo-task">Nome da tarefa</label><input id="demo-task" type="text" placeholder="Ex.: tirar o lixo" aria-describedby="task-help" /><p class="field-help" id="task-help">Dê um nome que todo mundo entenda.</p><label for="demo-due">Prazo</label><input id="demo-due" class="input-error" type="text" value="ontem, talvez" aria-invalid="true" aria-describedby="due-error" /><p class="field-error" id="due-error">Informe uma data válida para o prazo.</p></article>
+          <article class="component-panel task-panel"><span class="panel-tag">TAREFAS</span><h3>O essencial primeiro</h3><label class="task-card"><input type="checkbox" /><span class="task-check" aria-hidden="true"></span><span class="task-content"><strong>Lavar a louça</strong><small data-pending="Hoje, até 19h · Júlia" data-done="Concluída · Júlia" aria-live="polite">Hoje, até 19h · Júlia</small></span></label><label class="task-card"><input type="checkbox" checked /><span class="task-check" aria-hidden="true"></span><span class="task-content"><strong>Levar o lixo</strong><small data-pending="Hoje, até 19h · Caio" data-done="Concluída · Caio" aria-live="polite">Concluída · Caio</small></span></label></article>
+          <article class="component-panel status-panel"><span class="panel-tag">PESSOAS E ESTADOS</span><h3>Sem placar de culpa</h3><div class="avatar-row" role="group" aria-label="Participantes: Júlia, Caio e Lia"><span class="avatar avatar-blue" aria-hidden="true">JU</span><span class="avatar avatar-lilac" aria-hidden="true">CA</span><span class="avatar avatar-sun" aria-hidden="true">LI</span><span class="avatar-caption">a casa toda</span></div><div class="status-row"><span class="status status-success"><svg class="ui-icon" aria-hidden="true"><use href="#icon-check" /></svg>Em dia</span><span class="status status-warning"><svg class="ui-icon" aria-hidden="true"><use href="#icon-clock" /></svg>Vence hoje</span><span class="status status-danger"><svg class="ui-icon" aria-hidden="true"><use href="#icon-alert" /></svg>Passou do prazo</span></div><p class="panel-note">Nome e estado legíveis, mesmo sem perceber a cor.</p></article>
+        </div>
+        <div class="message-grid"><div class="message-card empty-message"><img class="message-symbol" src="./assets/faisca.svg" alt="" /><span class="eyebrow">ESTADO VAZIO</span><h3>Por aqui, tudo em ordem.</h3><p>Milagre? Combinado. Quando surgir uma tarefa, ela aparece aqui.</p></div><div class="message-card overdue-message"><svg class="message-symbol ui-icon" aria-hidden="true"><use href="#icon-clock" /></svg><span class="eyebrow">PRAZO PASSADO</span><h3>Passou do horário.</h3><p>Quer concluir a tarefa ou combinar outro prazo?</p></div><div class="message-card error-message"><svg class="message-symbol ui-icon" aria-hidden="true"><use href="#icon-alert" /></svg><span class="eyebrow">ERRO</span><h3>Não deu para salvar.</h3><p>Tente de novo. Seu texto continua aqui.</p></div></div>
+      </section>
+
+      <section class="section-shell content-section" id="voz" aria-labelledby="voz-title">
+        <div class="section-heading"><span class="eyebrow">07 / TOM DE VOZ</span><h2 id="voz-title">Pode zoar o caos.<br /><em>Jamais a pessoa.</em></h2><p>Humor brasileiro, direto e cúmplice. Em alerta, erro ou prazo, a primeira frase informa; a segunda ajuda a agir.</p></div>
+        <div class="voice-grid"><div class="voice-card voice-do"><span>USE</span><p>“A tarefa passou do horário. Quer concluir ou remarcar?”</p><small>Fato + próximo passo, sem julgamento.</small></div><div class="voice-card voice-dont"><span>EVITE</span><p>“Você esqueceu de novo. A casa inteira viu.”</p><small>Culpa, exposição e piada às custas de alguém.</small></div></div>
+        <div class="copy-list"><div><strong>Concluiu</strong><span>“Foi! A pia agradece.”</span></div><div><strong>Sem tarefas</strong><span>“Tudo em dia por aqui. Dá até para desconfiar.”</span></div><div><strong>Convite</strong><span>“Chama quem divide a casa com você.”</span></div><div><strong>Erro</strong><span>“Não conseguimos salvar. Tente de novo.”</span></div></div>
+      </section>
+
+      <section class="section-shell content-section" id="aplicacao" aria-labelledby="aplicacao-title">
+        <div class="section-heading"><span class="eyebrow">08 / APLICAÇÃO</span><h2 id="aplicacao-title">Pronto para sair<br /><em>do manual.</em></h2></div>
+        <div class="handoff-grid"><div class="handoff-card"><span class="number-tag">01</span><h3>Comece pelos tokens</h3><p>Importe <a href="./tokens.css">tokens.css</a> e use papéis semânticos. Defina <code>data-theme="light"</code> ou <code>data-theme="dark"</code> no elemento raiz; a preferência do sistema escolhe o padrão inicial.</p></div><div class="handoff-card"><span class="number-tag">02</span><h3>Desenhe para polegares</h3><p>Áreas de toque com pelo menos 48 px, foco visível e rótulos para ícones de ação. Barras fixas precisam considerar <code>env(safe-area-inset-bottom)</code> no iOS e Android.</p></div><div class="handoff-card"><span class="number-tag">03</span><h3>Mova com propósito</h3><p>140 ms para resposta curta, 240 ms para transição e 420 ms só para momentos especiais. <code>prefers-reduced-motion</code> reduz tudo a 1 ms.</p></div><div class="handoff-card"><span class="number-tag">04</span><h3>Instale com a cara certa</h3><p>Use os PNGs de 192 e 512 px, os ícones maskable para Android e <a href="./assets/apple-touch-icon.png">apple-touch-icon</a> no iOS. O símbolo deve continuar íntegro após o corte.</p></div></div>
+        <div class="accessibility-note"><strong>Critério de qualidade</strong><p>Texto comum com contraste mínimo de 4,5:1; componentes e gráficos informativos com 3:1. Nunca dependa só da cor, do movimento ou de um gesto para explicar uma tarefa.</p></div>
+        <div class="sources"><span class="eyebrow">PESQUISA E REFERÊNCIAS</span><a href="https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html">W3C / contraste</a><a href="https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast.html">W3C / componentes</a><a href="https://developer.android.com/design/ui/mobile/guides/foundations/accessibility">Android / acessibilidade</a><a href="https://developer.apple.com/design/human-interface-guidelines/motion">Apple / movimento</a><a href="https://m3.material.io/styles/motion/overview/how-it-works">Material / movimento</a><a href="https://web.dev/articles/add-manifest">PWA / ícones</a><a href="https://webkit.org/blog/13878/web-push-for-web-apps-on-ios-and-ipados/">WebKit / tela inicial</a><a href="https://www.gov.br/pt-br/guia-de-edicao-de-servicos-do-gov.br/escrevendo-para-o-seu-usuario">gov.br / linguagem simples</a></div>
+      </section>
+    </main>
+
+    <footer class="site-footer section-shell"><img src="./assets/logo-invertido.svg" alt="Chega de Briga" /><p>Casa compartilhada. Responsabilidade também.</p><a href="#inicio">Voltar ao começo</a></footer>
+    <script>
+      const root = document.documentElement;
+      const toggle = document.getElementById("theme-toggle");
+      function showTheme() {
+        const dark = root.dataset.theme === "dark";
+        toggle.querySelector(".theme-label").textContent = dark ? "Modo claro" : "Modo escuro";
+        toggle.querySelector(".theme-glyph use").setAttribute("href", dark ? "#icon-sun" : "#icon-moon");
+      }
+      toggle.addEventListener("click", () => {
+        root.dataset.theme = root.dataset.theme === "dark" ? "light" : "dark";
+        try { localStorage.setItem("cdb-theme", root.dataset.theme); } catch {}
+        showTheme();
+      });
+      showTheme();
+      const sectionMenu = document.querySelector(".section-menu");
+      if (sectionMenu) {
+        const compactNav = matchMedia("(max-width: 1130px)");
+        sectionMenu.open = !compactNav.matches;
+        sectionMenu.addEventListener("click", (event) => {
+          if (event.target.closest("a")) sectionMenu.open = false;
+        });
+        compactNav.addEventListener("change", () => { sectionMenu.open = !compactNav.matches; });
+      }
+      for (const card of document.querySelectorAll(".task-card")) {
+        const checkbox = card.querySelector('input[type="checkbox"]');
+        const status = card.querySelector(".task-content small");
+        const showTaskState = () => { status.textContent = checkbox.checked ? status.dataset.done : status.dataset.pending; };
+        checkbox.addEventListener("change", showTaskState);
+        showTaskState();
+      }
+    </script>
+  </body>
+</html>
