@@ -7,9 +7,11 @@ Abra [o manual visual](./index.html) no navegador. Ele contém as regras de marc
 - [`tokens/source.json`](./tokens/source.json): fonte canônica das cores, escala tipográfica fixa, espaçamento, formas e movimento. `pnpm tokens:build` gera [`generated/tokens.css`](./generated/tokens.css) e [`generated/tokens.native.ts`](./generated/tokens.native.ts).
 - [`tokens.css`](./tokens.css): entrada web que importa os tokens gerados e acrescenta fontes locais, tipografia fluida e movimento reduzido. A interface deve usar `--color-*`; `--brand-*` identifica as cores fixas da marca.
 - [`componentes.md`](./componentes.md): decisões de uso, limites dos componentes web e padrões de interface. As APIs e props continuam definidas pelo código em `apps/web/src/components`.
-- [`assets/logo-editavel.svg`](./assets/logo-editavel.svg): assinatura principal com texto editável. Os demais logos têm letras convertidas em vetor e podem ser usados sem instalar fontes.
+- [`assets/logo-editavel.svg`](./assets/logo-editavel.svg): assinatura principal com texto editável. Os demais logos têm letras convertidas em vetor e podem ser visualizados sem instalar fontes.
 - [`assets/`](./assets/): logos, símbolos, elementos gráficos, ícones e PNGs para a futura PWA.
 - [`fonts/`](./fonts/): Inter e Comfortaa locais, com as respectivas licenças SIL OFL.
+
+Os arquivos de imagem em `assets/` e o nome e as marcas Chega de Briga estão reservados; não são cobertos pela licença do código. O HTML, CSS e tokens do manual seguem a licença do código. Veja [`../LICENSING.md`](../LICENSING.md). As fontes continuam sob SIL OFL.
 
 ## Convenções para implementar a interface
 

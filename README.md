@@ -31,6 +31,10 @@ pnpm preview    # serve o build localmente
 
 As regras visuais estão em [`design-system/README.md`](./design-system/README.md); decisões de uso e limites ficam em [`design-system/componentes.md`](./design-system/componentes.md). As APIs dos componentes vivem no código em `apps/web/src/components`; `/componentes` é uma galeria interativa de exemplos.
 
+## Licença
+
+O código original do app e a documentação técnica estão sob GNU AGPL-3.0-only. O nome, os logos e as artes da identidade visual estão reservados e não são licenciados junto com o código. As fontes mantêm suas licenças SIL OFL. Consulte [LICENSING.md](./LICENSING.md) para o escopo completo.
+
 ## Publicação da PWA
 
 Sirva `apps/web/dist` na raiz da origem, com HTTPS. A hospedagem deve encaminhar rotas como `/componentes` e `/acesso` para `index.html`. O primeiro acesso precisa de conexão; depois, o shell e seus arquivos essenciais ficam disponíveis offline. O service worker é gerado somente no build de produção. O manifest usa os PNGs existentes, inclusive maskable e Apple touch icon. O console, as simulações de autenticação, credenciais e fixtures da demo não entram no build público. `/acesso` continua fechado até existir backend para autenticação, autorização e envio de e-mails reais.
