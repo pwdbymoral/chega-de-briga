@@ -1,0 +1,43 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      database:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      APP_STAGE: ${APP_STAGE:-production}
+      APP_ORIGIN: ${SERVICE_URL_APP_3000:?}
+      PORT: "3000"
+      DATABASE_URL: postgres://chegadebriga:${POSTGRES_PASSWORD:?}@database:5432/chegadebriga
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_APP_PASSWORD: ${SMTP_APP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:forjacorp@gmail.com}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
+    ports:
+      - "3000"
+
+  database:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: chegadebriga
+      POSTGRES_USER: chegadebriga
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
