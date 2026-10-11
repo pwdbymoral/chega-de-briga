@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import {
   Link,
   NavLink,
@@ -46,8 +46,8 @@ import { MobileMenu, type MobileMenuItem } from "../components/MobileMenu";
 import { ConsoleLoading } from "../components/ConsoleLoading";
 import { ConfirmDialog } from "../components/ResidentOverlays";
 import { useToast } from "../components/Toast";
-import { demoGateway } from "./mockGateway";
 import type {
+  AdminGateway,
   ActivityEvent,
   Analytics,
   AnalyticsFilter,
@@ -65,6 +65,12 @@ import styles from "./AdminApp.module.css";
 const client = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 15_000 } },
 });
+const AdminGatewayContext = createContext<AdminGateway | null>(null);
+const useAdminGateway = () => {
+  const gateway = useContext(AdminGatewayContext);
+  if (!gateway) throw new Error("AdminGateway is required");
+  return gateway;
+};
 const date = (value?: string) =>
   value
     ? new Date(value).toLocaleDateString("pt-BR", {
@@ -111,7 +117,7 @@ function Message({
 function Loading() {
   return (
     <div className={styles.loading} role="status">
-      Carregando dados da demonstração…
+      Carregando dados…
     </div>
   );
 }
@@ -179,14 +185,18 @@ function AppearanceSettings({
 function Login({
   onLogin,
   themeControl,
+  bootstrapEnabled,
 }: {
   onLogin: () => void;
   themeControl: ReactNode;
+  bootstrapEnabled: boolean;
 }) {
+  const gateway = useAdminGateway();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [totp, setTotp] = useState("");
   const mutation = useMutation({
-    mutationFn: () => demoGateway.login(email, password),
+    mutationFn: () => gateway.login(email, password, totp),
     onSuccess: onLogin,
   });
   function submit(event: FormEvent) {
@@ -207,16 +217,8 @@ function Login({
       <section className={styles.loginLayout}>
         <Card className={styles.loginCard}>
           <KeyRound size={34} aria-hidden="true" />
-          <h1>Entrar na demo</h1>
-          <p>Use as credenciais fictícias abaixo para explorar o fluxo.</p>
-          <div className={styles.credentials}>
-            <span>
-              E-mail <strong>admin@exemplo.test</strong>
-            </span>
-            <span>
-              Senha <strong>demonstracao</strong>
-            </span>
-          </div>
+          <h1>{import.meta.env.DEV ? "Entrar na demo" : "Entrar na administração"}</h1>
+          {import.meta.env.DEV && <><p>Use as credenciais fictícias abaixo para explorar o fluxo.</p><div className={styles.credentials}><span>E-mail <strong>admin@exemplo.test</strong></span><span>Senha <strong>demonstracao</strong></span></div></>}
           <form onSubmit={submit} className={styles.stack}>
             <TextField
               id="admin-email"
@@ -227,6 +229,7 @@ function Login({
               value={email}
               onChange={(event) => setEmail(event.target.value)}
             />
+            {!import.meta.env.DEV && <TextField id="admin-totp" label="Código do autenticador ou de recuperação" inputMode="text" autoComplete="one-time-code" minLength={6} maxLength={18} required value={totp} onChange={(event) => setTotp(event.target.value)} />}
             <TextField
               id="admin-password"
               type="password"
@@ -238,20 +241,20 @@ function Login({
             />
             {mutation.isError && <QueryError error={mutation.error} />}
             <Button type="submit" disabled={mutation.isPending}>
-              Entrar na demo <ArrowRight size={18} aria-hidden="true" />
+              {import.meta.env.DEV ? "Entrar na demo" : "Entrar"} <ArrowRight size={18} aria-hidden="true" />
             </Button>
           </form>
+          {bootstrapEnabled && <p className={styles.loginHelp}><Link to="/admin/setup">Configurar a primeira conta</Link></p>}
         </Card>
         <div className={styles.loginIntro}>
-          <span className={styles.eyebrow}>ÁREA DA EQUIPE · DEMONSTRAÇÃO</span>
+          <span className={styles.eyebrow}>ÁREA DA EQUIPE{import.meta.env.DEV ? " · DEMONSTRAÇÃO" : ""}</span>
           <h2>
             Os bastidores
             <br />
             <em>também contam.</em>
           </h2>
           <p>
-            Este console usa dados fictícios e funciona somente no ambiente de
-            desenvolvimento.
+            {import.meta.env.DEV ? "Este console usa dados fictícios e funciona somente no ambiente de desenvolvimento." : "Acesso restrito à equipe da plataforma."}
           </p>
           <img src="/caminhos.svg" alt="" />
         </div>
@@ -260,23 +263,99 @@ function Login({
   );
 }
 
+function BootstrapAdmin({ themeControl }: { themeControl: ReactNode }) {
+  const gateway = useAdminGateway();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const token = new URLSearchParams(location.search).get("token") ?? new URLSearchParams(location.hash.replace(/^#/, "")).get("token") ?? "";
+  useEffect(() => {
+    if (token) window.history.replaceState(null, "", location.pathname);
+  }, [location.pathname, token]);
+  const [password, setPassword] = useState("");
+  const [totp, setTotp] = useState("");
+  const [sent, setSent] = useState(false);
+  const [recoveryCodes, setRecoveryCodes] = useState<string[]>();
+  const challenge = useQuery({
+    queryKey: ["bootstrap-challenge", token],
+    queryFn: () => gateway.bootstrapChallenge?.(token),
+    enabled: Boolean(token && gateway.bootstrapChallenge),
+    retry: false,
+  });
+  const send = useMutation({
+    mutationFn: async () => {
+      if (!gateway.requestBootstrap) throw new Error("Configuração inicial indisponível.");
+      await gateway.requestBootstrap();
+    },
+    onSuccess: () => setSent(true),
+  });
+  const complete = useMutation({
+    mutationFn: async () => {
+      if (!gateway.completeBootstrap) throw new Error("Configuração inicial indisponível.");
+      return gateway.completeBootstrap({ token, password, totp });
+    },
+    onSuccess: setRecoveryCodes,
+  });
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    complete.mutate();
+  }
+  return (
+    <>
+      <div className={styles.loginTop}><Link to="/" className={styles.consoleBrand}><img src="/simbolo.svg" alt="" width="38" height="38" /><span>CHEGA DE BRIGA<strong>Início</strong></span></Link>{themeControl}</div>
+      <section className={styles.loginLayout}>
+        <Card className={styles.loginCard}>
+          <KeyRound size={34} aria-hidden="true" />
+          <h1>Configurar administração</h1>
+          {!token ? (
+            <>
+              <p>Enviaremos um link de configuração ao e-mail definido nos segredos do servidor.</p>
+              {sent ? <Message tone="success">Se a configuração inicial estiver ativa, o link foi enviado.</Message> : <Button disabled={send.isPending} onClick={() => send.mutate()}>{send.isPending ? "Enviando…" : "Enviar link de configuração"}</Button>}
+              {send.isError && <QueryError error={send.error} />}
+            </>
+          ) : recoveryCodes ? (
+            <div className={styles.stack}>
+              <Message tone="success">A conta foi criada. Guarde estes códigos agora: cada um funciona uma única vez e não serão exibidos novamente.</Message>
+              <pre className={styles.recoveryCodes}>{recoveryCodes.join("\n")}</pre>
+              <Button onClick={() => navigate("/admin/entrar", { replace: true })}>Guardei os códigos e vou entrar</Button>
+            </div>
+          ) : challenge.isPending ? <Loading /> : challenge.error || !challenge.data ? <QueryError error={challenge.error ?? new Error("Link inválido ou expirado.")} /> : (
+            <form className={styles.stack} onSubmit={submit}>
+              <p>Conta inicial: <strong>{challenge.data.email}</strong></p>
+              <p>Cadastre este segredo no aplicativo autenticador antes de continuar:</p>
+              <code className={styles.credentials}>{challenge.data.totpSecret}</code>
+              <p>Se este e-mail já tiver uma conta residencial, informe a senha atual. Os dois acessos usam a mesma senha.</p>
+              <TextField id="bootstrap-password" type="password" label="Senha da conta" autoComplete="new-password" minLength={12} maxLength={200} required value={password} onChange={(event) => setPassword(event.target.value)} />
+              <TextField id="bootstrap-totp" label="Código do autenticador" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" minLength={6} maxLength={6} required value={totp} onChange={(event) => setTotp(event.target.value)} />
+              {complete.isError && <QueryError error={complete.error} />}
+              <Button type="submit" disabled={complete.isPending}>{complete.isPending ? "Configurando…" : "Concluir configuração"}</Button>
+            </form>
+          )}
+          <p className={styles.loginHelp}><Link to="/admin/entrar">Voltar para entrar</Link></p>
+        </Card>
+        <div className={styles.loginIntro}><span className={styles.eyebrow}>ACESSO DA EQUIPE</span><h2>Uma conta.<br /><em>Protegida.</em></h2><p>Use uma senha única e um autenticador de dois fatores.</p><img src="/caminhos.svg" alt="" /></div>
+      </section>
+    </>
+  );
+}
+
 function Overview() {
+  const gateway = useAdminGateway();
   const analytics = useQuery({
     queryKey: ["analytics", 30, "todos", "todos"],
     queryFn: () =>
-      demoGateway.analytics({ period: 30, source: "todos", size: "todos" }),
+      gateway.analytics({ period: 30, source: "todos", size: "todos" }),
   });
   const people = useQuery({
     queryKey: ["users", "", "todos", 1],
-    queryFn: () => demoGateway.users({ search: "", status: "todos", page: 1 }),
+    queryFn: () => gateway.users({ search: "", status: "todos", page: 1 }),
   });
   const houses = useQuery({
     queryKey: ["houses"],
-    queryFn: () => demoGateway.households(),
+    queryFn: () => gateway.households(),
   });
   const access = useQuery({
     queryKey: ["access"],
-    queryFn: () => demoGateway.access(),
+    queryFn: () => gateway.access(),
   });
   if (
     analytics.isPending ||
@@ -360,12 +439,13 @@ function Overview() {
 }
 
 function UsersPage() {
+  const gateway = useAdminGateway();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<UserStatus | "todos">("todos");
   const [page, setPage] = useState(1);
   const query = useQuery({
     queryKey: ["users", search, status, page],
-    queryFn: () => demoGateway.users({ search, status, page }),
+    queryFn: () => gateway.users({ search, status, page }),
   });
   return (
     <>
@@ -491,12 +571,13 @@ function UserEditor({
   activity: ActivityEvent[];
   audit: AuditEvent[];
 }) {
+  const gateway = useAdminGateway();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { showToast } = useToast();
   const houses = useQuery({
     queryKey: ["houses"],
-    queryFn: () => demoGateway.households(),
+    queryFn: () => gateway.households(),
   });
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
@@ -518,10 +599,10 @@ function UserEditor({
         | { kind: "role"; householdId: string; role: HouseholdRole },
     ) => {
       if (action.kind === "profile")
-        return demoGateway.updateUser(user.id, { name, email });
+        return gateway.updateUser(user.id, { name, email });
       if (action.kind === "status")
-        return demoGateway.setUserStatus(user.id, action.status);
-      return demoGateway.setMembershipRole(
+        return gateway.setUserStatus(user.id, action.status);
+      return gateway.setMembershipRole(
         user.id,
         action.householdId,
         action.role,
@@ -727,10 +808,11 @@ function UserEditor({
   );
 }
 function UserDetail() {
+  const gateway = useAdminGateway();
   const { id } = useParams();
   const query = useQuery({
     queryKey: ["user", id],
-    queryFn: () => demoGateway.user(id!),
+    queryFn: () => gateway.user(id!),
     enabled: Boolean(id),
   });
   if (query.isPending) return <Loading />;
@@ -771,15 +853,16 @@ function AccessActions({ children }: { children: ReactNode }) {
 }
 
 function AccessPage() {
+  const gateway = useAdminGateway();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const access = useQuery({
     queryKey: ["access"],
-    queryFn: () => demoGateway.access(),
+    queryFn: () => gateway.access(),
   });
   const houses = useQuery({
     queryKey: ["houses"],
-    queryFn: () => demoGateway.households(),
+    queryFn: () => gateway.households(),
   });
   const [allowedEmail, setAllowedEmail] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
@@ -800,15 +883,15 @@ function AccessPage() {
     ) => {
       switch (action.kind) {
         case "allow":
-          return demoGateway.addAllowed(allowedEmail);
+          return gateway.addAllowed(allowedEmail);
         case "invite":
-          return demoGateway.invite(inviteEmail, houseId || undefined);
+          return gateway.invite(inviteEmail, houseId || undefined);
         case "revokeAllow":
-          return demoGateway.revokeAllowed(action.id);
+          return gateway.revokeAllowed(action.id);
         case "revokeInvite":
-          return demoGateway.revokeInvite(action.id);
+          return gateway.revokeInvite(action.id);
         case "resend":
-          return demoGateway.resendInvite(action.id);
+          return gateway.resendInvite(action.id);
       }
     },
     onSuccess: async (_, action) => {
@@ -1101,9 +1184,10 @@ function AccessPage() {
 }
 
 function HousesPage() {
+  const gateway = useAdminGateway();
   const query = useQuery({
     queryKey: ["houses"],
-    queryFn: () => demoGateway.households(),
+    queryFn: () => gateway.households(),
   });
   return (
     <>
@@ -1141,10 +1225,11 @@ function HousesPage() {
   );
 }
 function HouseDetail() {
+  const gateway = useAdminGateway();
   const { id } = useParams();
   const query = useQuery({
     queryKey: ["house", id],
-    queryFn: () => demoGateway.household(id!),
+    queryFn: () => gateway.household(id!),
     enabled: Boolean(id),
   });
   if (query.isPending) return <Loading />;
@@ -1331,6 +1416,7 @@ function downloadCsv(data: Analytics) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 function AnalyticsPage() {
+  const gateway = useAdminGateway();
   const [filter, setFilter] = useState<AnalyticsFilter>({
     period: 30,
     source: "todos",
@@ -1338,7 +1424,7 @@ function AnalyticsPage() {
   });
   const query = useQuery({
     queryKey: ["analytics", filter.period, filter.source, filter.size],
-    queryFn: () => demoGateway.analytics(filter),
+    queryFn: () => gateway.analytics(filter),
   });
   return (
     <>
@@ -1601,20 +1687,26 @@ const adminMenuItems: MobileMenuItem[] = [
 ];
 
 function AdminInner({ themeControl }: { themeControl: ReactNode }) {
+  const gateway = useAdminGateway();
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
   const session = useQuery({
     queryKey: ["admin-session"],
-    queryFn: () => demoGateway.session(),
+    queryFn: () => gateway.session(),
     staleTime: 0,
+  });
+  const bootstrap = useQuery({
+    queryKey: ["bootstrap-status"],
+    queryFn: () => gateway.bootstrapStatus?.() ?? Promise.resolve(false),
+    enabled: !session.data,
   });
   const onLogin = () => {
     queryClient.setQueryData(["admin-session"], true);
     navigate("/admin");
   };
   const logout = useMutation({
-    mutationFn: () => demoGateway.logout(),
+    mutationFn: () => gateway.logout(),
     onSuccess: () => {
       queryClient.setQueryData(["admin-session"], false);
       navigate("/admin/entrar");
@@ -1627,17 +1719,18 @@ function AdminInner({ themeControl }: { themeControl: ReactNode }) {
       <Routes>
         <Route
           path="entrar"
-          element={<Login onLogin={onLogin} themeControl={themeControl} />}
+          element={<Login onLogin={onLogin} themeControl={themeControl} bootstrapEnabled={bootstrap.data ?? false} />}
         />
+        <Route path="setup" element={<BootstrapAdmin themeControl={themeControl} />} />
         <Route path="*" element={<Navigate to="/admin/entrar" replace />} />
       </Routes>
     );
   return (
     <section className={styles.console}>
-      <div className={styles.demoBanner} role="status">
+      {import.meta.env.DEV && <div className={styles.demoBanner} role="status">
         <span>DEMONSTRAÇÃO · DADOS FICTÍCIOS</span>
         <span>Alterações se perdem ao atualizar ou fechar a aba. Nenhum e-mail é enviado.</span>
-      </div>
+      </div>}
       <div className={styles.shell}>
         <aside className={styles.sidebar}>
           <div className={styles.sidebarHeader}>
@@ -1662,7 +1755,7 @@ function AdminInner({ themeControl }: { themeControl: ReactNode }) {
                     disabled={logout.isPending}
                     onClick={() => logout.mutate()}
                   >
-                    <LogOut size={18} aria-hidden="true" /> Sair da demo
+                    <LogOut size={18} aria-hidden="true" /> Sair
                   </Button>
                 </>
               }
@@ -1686,7 +1779,7 @@ function AdminInner({ themeControl }: { themeControl: ReactNode }) {
                   disabled={logout.isPending}
                   onClick={() => logout.mutate()}
                 >
-                  <LogOut size={18} aria-hidden="true" /> Sair da demo
+                  <LogOut size={18} aria-hidden="true" /> Sair
                 </Button>
               }
             />
@@ -1712,12 +1805,16 @@ function AdminInner({ themeControl }: { themeControl: ReactNode }) {
 
 export default function AdminApp({
   themeControl,
+  gateway,
 }: {
   themeControl: ReactNode;
+  gateway: AdminGateway;
 }) {
   return (
     <QueryClientProvider client={client}>
-      <AdminInner themeControl={themeControl} />
+      <AdminGatewayContext.Provider value={gateway}>
+        <AdminInner themeControl={themeControl} />
+      </AdminGatewayContext.Provider>
     </QueryClientProvider>
   );
 }

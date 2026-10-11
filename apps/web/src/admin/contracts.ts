@@ -1,3 +1,5 @@
+import type { HouseData } from "../resident/ResidentModel";
+
 export type HouseholdRole = "responsavel" | "morador";
 export type AccessSource = "lista" | "convite_admin" | "convite_morador";
 export type UserStatus = "ativo" | "suspenso" | "excluido";
@@ -50,6 +52,7 @@ export interface TaskMeta {
   createdAt: string;
   dueAt: string;
   completedAt?: string;
+  isOpen?: boolean;
 }
 export interface ActivityEvent {
   id: string;
@@ -60,7 +63,9 @@ export interface ActivityEvent {
     | "acesso"
     | "entrada_casa"
     | "tarefa_criada"
-    | "tarefa_concluida";
+    | "tarefa_concluida"
+    | "tarefa_pulada"
+    | "tarefa_editada";
   at: string;
 }
 export interface AuditEvent {
@@ -123,9 +128,13 @@ export interface Analytics {
 }
 
 export interface AdminGateway {
-  login(email: string, password: string): Promise<void>;
+  login(email: string, password: string, totp?: string): Promise<void>;
   session(): Promise<boolean>;
   logout(): Promise<void>;
+  bootstrapStatus?(): Promise<boolean>;
+  requestBootstrap?(): Promise<void>;
+  bootstrapChallenge?(token: string): Promise<{ email: string; totpSecret: string; totpUri: string }>;
+  completeBootstrap?(input: { token: string; password: string; totp: string }): Promise<string[]>;
   users(query: UserQuery): Promise<UserPage>;
   user(
     id: string,
@@ -187,11 +196,41 @@ export interface AuthGateway {
     email: string;
     password: string;
     invitationId?: string;
-  }): Promise<AuthSession>;
+  }): Promise<AuthSession | null>;
   login(email: string, password: string): Promise<AuthSession>;
+  verifyEmail(token: string): Promise<AuthSession>;
   session(): Promise<AuthSession | null>;
   logout(): Promise<void>;
   requestPasswordReset(email: string): Promise<string | undefined>;
   resetPassword(token: string, password: string): Promise<void>;
-  createHouse(name: string): Promise<AuthSession>;
+  createHouse(name: string, timezone?: string): Promise<AuthSession>;
+  residents: ResidentGateway;
 }
+
+export interface ResidentGateway {
+  loadHousehold(id: string): Promise<{ version: number; data: HouseData }>;
+  saveHousehold(id: string, version: number, data: HouseData, events?: TaskSyncEvent[]): Promise<{ version: number }>;
+  updateProfileName(name: string): Promise<void>;
+  exportAccount(): Promise<unknown>;
+  deleteAccount(): Promise<void>;
+  reminder(): Promise<{ enabled: boolean; time: string }>;
+  saveReminder(enabled: boolean, time: string): Promise<void>;
+  vapidPublicKey(): Promise<string>;
+  savePushSubscription(subscription: { endpoint: string; keys: { p256dh: string; auth: string } }): Promise<void>;
+  removePushSubscription(endpoint?: string): Promise<void>;
+  renameHousehold(id: string, name: string): Promise<void>;
+  inviteResident(id: string, email: string): Promise<void>;
+  revokeInvitation(householdId: string, invitationId: string): Promise<void>;
+  leaveHousehold(id: string): Promise<AuthSession>;
+  deleteHousehold(id: string): Promise<void>;
+  removeMember(householdId: string, userId: string): Promise<void>;
+  transferResponsibility(householdId: string, userId: string): Promise<AuthSession>;
+}
+
+export type TaskSyncEvent = {
+  id: string;
+  type: "tarefa_criada" | "tarefa_concluida" | "tarefa_pulada" | "tarefa_editada";
+  taskId: string;
+  occurrenceDate?: string;
+  scope?: "occurrence" | "series";
+};

@@ -1,3 +1,5 @@
 packages:
   - "apps/*"
   - "design-system"
+allowBuilds:
+  esbuild: true

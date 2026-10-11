@@ -4,6 +4,7 @@ import {
   createDemoData,
   createDemoGateway,
 } from "./mockGateway";
+import type { AuthSession } from "./contracts";
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -22,6 +23,11 @@ const settle = async <T>(promise: Promise<T>) => {
   return result.value;
 };
 
+function requiredSession(value: AuthSession | null): AuthSession {
+  if (!value) throw new Error("A demonstração deve entrar após o cadastro.");
+  return value;
+}
+
 function gateways() {
   const data = createDemoData();
   return {
@@ -35,13 +41,13 @@ describe("autenticação da demonstração", () => {
   it("libera uma conta da lista e deixa criar a primeira casa", async () => {
     const { admin, auth, data } = gateways();
     await settle(admin.addAllowed("ana@example.test"));
-    const account = await settle(
+    const account = requiredSession(await settle(
       auth.register({
         name: "Ana",
         email: "ANA@example.test",
         password: "casa tranquila",
       }),
-    );
+    ));
     expect(account).toMatchObject({
       user: { name: "Ana", email: "ana@example.test" },
       memberships: [],
@@ -71,14 +77,14 @@ describe("autenticação da demonstração", () => {
     const invite = (await settle(admin.access())).invitations.find(
       (item) => item.email === "novo.morador@example.test",
     )!;
-    const account = await settle(
+    const account = requiredSession(await settle(
       auth.register({
         name: "Nina",
         email: invite.email,
         password: "morar junto",
         invitationId: invite.id,
       }),
-    );
+    ));
     expect(account).toMatchObject({
       memberships: [{ householdId: "casa-1", householdName: "Casa Girassol", role: "morador" }],
       canCreateHouse: false,
@@ -95,14 +101,14 @@ describe("autenticação da demonstração", () => {
     const invite = (await settle(admin.access())).invitations.find(
       (item) => item.email === "novo.morador@example.test",
     )!;
-    const account = await settle(
+    const account = requiredSession(await settle(
       auth.register({
         name: "Lia",
         email: invite.email,
         password: "casa tranquila",
         invitationId: invite.id,
       }),
-    );
+    ));
     expect(account.canCreateHouse).toBe(true);
     expect((await settle(auth.createHouse("Casa da Lia"))).memberships).toHaveLength(2);
   });
@@ -112,13 +118,13 @@ describe("autenticação da demonstração", () => {
     const invite = (await settle(admin.access())).invitations.find(
       (item) => item.email === "novo.admin@example.test",
     )!;
-    const account = await settle(
+    const account = requiredSession(await settle(
       auth.register({
         name: "Rafa",
         email: invite.email,
         password: "casa tranquila",
       }),
-    );
+    ));
     expect(account.canCreateHouse).toBe(true);
     expect(data.invitations.find((item) => item.id === invite.id)?.status).toBe("aceito");
   });

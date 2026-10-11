@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import {
   ArrowLeft,
   Bell,
@@ -19,7 +19,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import { Link } from "react-router";
-import type { AuthSession, HouseholdRole } from "../admin/contracts";
+import type { AuthSession, HouseholdRole, ResidentGateway } from "../admin/contracts";
 import {
   Avatar,
   Button,
@@ -351,7 +351,7 @@ export function TaskEditor({
   members: ResidentMember[];
   scope?: string;
   onCancel: () => void;
-  onSave: (value: TaskInput) => void;
+  onSave: (value: TaskInput, scope?: "occurrence" | "series") => void;
 }) {
   const [title, setTitle] = useState(task?.title ?? "");
   const [repeat, setRepeat] = useState<Repeat>(task?.repeat ?? "once");
@@ -407,12 +407,12 @@ export function TaskEditor({
       rotationIndex: task?.rotationIndex ?? 0,
       completionScope: completionScope.trim(),
       activeTime,
-    });
+    }, task ? (isOccurrenceEdit ? "occurrence" : "series") : undefined);
   }
 
   return (
     <form className={styles.formStack} onSubmit={submit}>
-      {scope && <p className={styles.infoNote}>{isOccurrenceEdit ? "As alterações serão aplicadas só a esta ocorrência." : "As alterações serão aplicadas a esta e às próximas ocorrências."} No protótipo, esse escopo vale para o registro local.</p>}
+      {scope && <p className={styles.infoNote}>{isOccurrenceEdit ? "As alterações serão aplicadas só a esta ocorrência." : "As alterações serão aplicadas a esta e às próximas ocorrências."}</p>}
       <TextField id="task-title" label="Nome da tarefa" placeholder="Ex.: Lavar o banheiro" maxLength={100} required value={title} onChange={(event) => setTitle(event.target.value)} />
       <Select
         label="Repetição"
@@ -525,20 +525,89 @@ export function ShoppingScreen({
 
 export function ProfileScreen({
   session,
+  gateway,
   onSave,
   onLogout,
 }: {
   session: AuthSession;
+  gateway: ResidentGateway;
   onSave: (name: string) => void;
   onLogout: () => void;
 }) {
   const [name, setName] = useState(session.user.name);
+  const [reminderEnabled, setReminderEnabled] = useState(false);
+  const [reminderTime, setReminderTime] = useState("08:00");
+  const [savingReminder, setSavingReminder] = useState(false);
   const { showToast } = useToast();
+  useEffect(() => {
+    let current = true;
+    void gateway.reminder().then((value) => {
+      if (!current) return;
+      setReminderEnabled(value.enabled);
+      setReminderTime(value.time);
+    }).catch(() => undefined);
+    return () => { current = false; };
+  }, [gateway]);
   function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!name.trim()) return;
     onSave(name.trim());
-    showToast("Nome atualizado nesta demonstração.");
+    showToast("Nome atualizado.");
+  }
+  async function toggleReminder() {
+    setSavingReminder(true);
+    try {
+      if (import.meta.env.DEV) {
+        showToast("Notificações ficam disponíveis no ambiente de produção.");
+        return;
+      }
+      if (reminderEnabled) {
+        await gateway.saveReminder(false, reminderTime);
+        setReminderEnabled(false);
+        showToast("Lembretes desativados.");
+        return;
+      }
+      if (!("Notification" in window) || !("serviceWorker" in navigator)) throw new Error("Este navegador não oferece notificações para a PWA.");
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") throw new Error("Permita notificações no navegador para ativar os lembretes.");
+      const key = await gateway.vapidPublicKey();
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription() ?? await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: decodeVapidKey(key) });
+      const value = subscription.toJSON();
+      if (!value.endpoint || !value.keys?.p256dh || !value.keys.auth) throw new Error("Não foi possível registrar este aparelho para notificações.");
+      await gateway.savePushSubscription({ endpoint: value.endpoint, keys: { p256dh: value.keys.p256dh, auth: value.keys.auth } });
+      await gateway.saveReminder(true, reminderTime);
+      setReminderEnabled(true);
+      showToast("Lembretes diários ativados.");
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Não foi possível atualizar as notificações.");
+    } finally {
+      setSavingReminder(false);
+    }
+  }
+  async function saveReminderTime() {
+    setSavingReminder(true);
+    try {
+      await gateway.saveReminder(reminderEnabled, reminderTime);
+      showToast("Horário do lembrete atualizado.");
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Não foi possível salvar o horário.");
+    } finally {
+      setSavingReminder(false);
+    }
+  }
+  async function exportData() {
+    try {
+      const data = await gateway.exportAccount();
+      const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "chega-de-briga-dados.json";
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Não foi possível exportar os dados.");
+    }
   }
   return (
     <div className={styles.screenStack}>
@@ -546,18 +615,39 @@ export function ProfileScreen({
         <Avatar name={session.user.name} initials={initials(session.user.name)} tone="lilac" />
         <form className={styles.formStack} onSubmit={save}>
           <TextField id="profile-name" label="Seu nome" maxLength={100} required value={name} onChange={(event) => setName(event.target.value)} />
-          <TextField id="profile-email" label="E-mail" type="email" value={session.user.email} readOnly hint="A edição da conta depende da integração de autenticação." />
+          <TextField id="profile-email" label="E-mail" type="email" value={session.user.email} readOnly hint="E-mail confirmado da conta." />
           <Button type="submit">Salvar nome</Button>
         </form>
       </Card>
       <Card className={styles.preferenceCard}>
-        <div className={styles.preferenceIntro}><Bell size={21} aria-hidden="true" /><div><h2>Lembrete diário</h2><p>Escolha ativar quando as notificações estiverem conectadas ao serviço da casa.</p></div></div>
-        <Button variant="secondary" onClick={() => showToast("Notificações ainda não estão conectadas nesta demonstração.")}>Ativar notificações</Button>
+        <div className={styles.preferenceIntro}><Bell size={21} aria-hidden="true" /><div><h2>Lembrete diário</h2><p>Receba as tarefas atribuídas a você, vencidas ou previstas para o dia.</p></div></div>
+        <TextField id="reminder-time" label="Horário" type="time" value={reminderTime} onChange={(event) => setReminderTime(event.target.value)} />
+        <div className={styles.preferenceActions}><Button variant="secondary" disabled={savingReminder} onClick={() => void saveReminderTime()}>Salvar horário</Button><Button disabled={savingReminder} onClick={() => void toggleReminder()}>{savingReminder ? "Salvando…" : reminderEnabled ? "Desativar notificações" : "Ativar notificações"}</Button></div>
       </Card>
+      <Card className={styles.preferenceCard}><h2>Seus dados</h2><p>Baixe uma cópia dos dados da sua conta e das casas em que participa.</p><Button variant="secondary" onClick={() => void exportData()}>Baixar meus dados</Button><p><Link to="/privacidade">Aviso de privacidade</Link></p><p><Link to="/casa/perfil/excluir">Excluir conta</Link></p></Card>
       <Button variant="quiet" className={styles.logoutButton} onClick={onLogout}><LogOut size={18} aria-hidden="true" /> Sair da conta</Button>
-      <p className={styles.helper}>A sessão e estas alterações são locais. Nenhum dado de conta é enviado.</p>
+      {import.meta.env.DEV && <p className={styles.helper}>A sessão e estas alterações são locais. Nenhum dado de conta é enviado.</p>}
     </div>
   );
+}
+
+function decodeVapidKey(value: string) {
+  const padded = value.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(value.length / 4) * 4, "=");
+  const binary = atob(padded);
+  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+}
+
+export function DeleteAccountScreen({ onDelete, onCancel }: { onDelete: () => Promise<void>; onCancel: () => void }) {
+  const [confirmation, setConfirmation] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    try { await onDelete(); } catch (reason) { setError(reason instanceof Error ? reason.message : "Não foi possível excluir a conta."); } finally { setBusy(false); }
+  }
+  return <div className={styles.screenStack}><Card className={styles.houseCard}><span className={styles.eyebrow}>AÇÃO PERMANENTE</span><h1>Excluir sua conta?</h1><p>Seu perfil será anonimizado. O histórico compartilhado continuará sem identificar você. Se esta for a única pessoa da casa, a casa e seus dados serão apagados. Se você for o último responsável de uma casa com outras pessoas, transfira a responsabilidade antes.</p><form className={styles.formStack} onSubmit={submit}><TextField id="delete-account-confirm" label="Digite EXCLUIR para confirmar" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} required /><div className={styles.preferenceActions}><Button type="button" variant="secondary" onClick={onCancel}>Cancelar</Button><Button type="submit" disabled={busy || confirmation !== "EXCLUIR"}>{busy ? "Excluindo…" : "Excluir conta"}</Button></div>{error && <p role="alert">{error}</p>}</form></Card></div>;
 }
 
 export function HouseScreen({
@@ -600,7 +690,7 @@ export function HouseScreen({
         {!canLeave && <p>Antes de sair, transfira a responsabilidade para outro morador.</p>}
         <Button variant="quiet" disabled={!canLeave} onClick={onLeave}>Sair desta casa</Button>
         {role === "responsavel" && <Button variant="quiet" onClick={onDelete}><Trash2 size={17} aria-hidden="true" /> Excluir casa</Button>}
-        {role === "responsavel" && responsibleCount < 2 && <small>Excluir a casa remove todos os dados compartilhados neste protótipo local.</small>}
+        {role === "responsavel" && responsibleCount < 2 && <small>Excluir a casa remove permanentemente os dados compartilhados.</small>}
       </section>
       <BottomSheet open={renameOpen} onClose={() => setRenameOpen(false)} title="Nome da casa" footer={<><Button variant="secondary" onClick={() => setRenameOpen(false)}>Cancelar</Button><Button onClick={() => { if (draft.trim()) { onRename(draft.trim()); setRenameOpen(false); } }}>Salvar nome</Button></>}>
         <TextField id="house-name-edit" label="Nome da casa" maxLength={60} required value={draft} onChange={(event) => setDraft(event.target.value)} />
@@ -637,10 +727,10 @@ export function MembersScreen({
       {role === "responsavel" && (
         <Card className={styles.inviteCard}>
           <div className={styles.sectionHeadingCompact}><h2>Convidar morador</h2><Mail size={19} aria-hidden="true" /></div>
-          <p>Este convite fica nesta demonstração. Nenhum e-mail será enviado.</p>
+          <p>{import.meta.env.DEV ? "Este convite fica nesta demonstração. Nenhum e-mail será enviado." : "A pessoa receberá um link por e-mail para entrar nesta casa."}</p>
           <form className={styles.inviteForm} onSubmit={submit}>
             <TextField id="invite-email" label="E-mail" type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="nome@exemplo.com" />
-            <Button type="submit"><Plus size={18} aria-hidden="true" /> Criar convite de demonstração</Button>
+            <Button type="submit"><Plus size={18} aria-hidden="true" /> {import.meta.env.DEV ? "Criar convite de demonstração" : "Enviar convite"}</Button>
           </form>
         </Card>
       )}
@@ -662,9 +752,9 @@ export function MembersScreen({
       </section>
       <section className={styles.contentSection} aria-labelledby="invites-title">
         <div className={styles.sectionHeadingCompact}><h2 id="invites-title">Convites pendentes</h2><span>{data.invites.length}</span></div>
-        {data.invites.length ? <Card className={styles.memberList}>{data.invites.map((invite) => <article className={styles.inviteRow} key={invite.id}><div><strong>{invite.email}</strong><StatusBadge tone="warning">Não enviado · demonstração</StatusBadge></div>{role === "responsavel" && <Button variant="quiet" onClick={() => onRevoke(invite.id)}>Revogar</Button>}</article>)}</Card> : <p className={styles.helper}>Nenhum convite pendente.</p>}
+        {data.invites.length ? <Card className={styles.memberList}>{data.invites.map((invite) => <article className={styles.inviteRow} key={invite.id}><div><strong>{invite.email}</strong><StatusBadge tone="warning">{import.meta.env.DEV ? "Não enviado · demonstração" : "Link enviado"}</StatusBadge></div>{role === "responsavel" && <Button variant="quiet" onClick={() => onRevoke(invite.id)}>Revogar</Button>}</article>)}</Card> : <p className={styles.helper}>Nenhum convite pendente.</p>}
       </section>
-      <p className={styles.infoNote}>Os moradores e convites acima são dados locais de demonstração; alterações não chegam a outras pessoas.</p>
+      {import.meta.env.DEV && <p className={styles.infoNote}>Os moradores e convites acima são dados locais de demonstração; alterações não chegam a outras pessoas.</p>}
     </div>
   );
 }

@@ -1,40 +1,43 @@
 # Chega de Briga
 
-Base de frontend da PWA para organizar combinados entre pessoas que dividem uma casa. Inclui identidade visual, galeria de componentes, demo do console administrativo e protótipo interativo de autenticação para moradores. Ainda não há backend nem fluxos de tarefas.
+PWA para organizar tarefas recorrentes e compras compartilhadas de uma casa. O repositório contém a interface React, a API Fastify, o contrato de dados administrativo e o design system.
 
-## Começar
+## Desenvolvimento local
 
-Requer Node.js 24 e pnpm 12.6.0. Na raiz do repositório:
+Requer Node.js 24 e pnpm 12.6.0.
 
 ```bash
 pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-Abra o endereço mostrado pelo Vite. A rota `/componentes` reúne os controles reutilizáveis. `/acesso` informa que o cadastro público está fechado. Em desenvolvimento, `/admin` abre o console demo; em `/admin/acessos`, crie uma autorização ou convite e use **Testar** para abrir o cadastro. Também é possível entrar, recuperar senha, redefinir pelo link de teste e criar uma casa. Nenhum e-mail é enviado; os dados e senhas ficam somente em memória e se perdem ao recarregar. O [manual de marca](./design-system/index.html) continua sendo um site estático: pode ser aberto diretamente no navegador, sem build.
+`pnpm dev` abre o protótipo local com gateways de demonstração. Ele não exige banco e não envia e-mails. Para executar a API, configure as variáveis documentadas em [`docs/backend-deployment-contract-v1.md`](./docs/backend-deployment-contract-v1.md), disponibilize PostgreSQL e rode:
 
 ```bash
-pnpm check      # tokens, tipos, interações e testes
-pnpm build      # gera a PWA em apps/web/dist
-pnpm preview    # serve o build localmente
+pnpm api:dev
 ```
 
-## Organização
+As rotas `/admin` e `/entrar` usam dados simulados em desenvolvimento e serviços reais no build de produção. Não use credenciais demo nem fixtures para validar produção.
 
-- `apps/web`: React, TypeScript, Vite e PWA. A interface usa CSS Modules e os tokens semânticos.
-- `design-system`: fonte das regras visuais e de escolha de componentes; consulte o [guia do design system](./design-system/README.md).
-- `docs/modelagem-mobile-v1.md`: modelo de navegação, wireframes e regras de produto para o app residencial PWA.
-- `apps/mobile`: reservado para um futuro app Expo/React Native. Ele poderá importar `@chega-de-briga/design-system/tokens.native` e os arquivos de marca; componentes de interface serão próprios da plataforma.
-- `apps/web/src/admin`: contratos `AdminGateway` e `AuthGateway`, adaptadores demo em memória com dados compartilhados, métricas agregadas e telas do console. O [contrato para o futuro backend](./docs/admin-backend-contract.md) é a referência para dados, segurança, operações e métricas da integração administrativa.
+## Build e execução
 
-## Interface
+```bash
+pnpm build
+pnpm preview
+```
 
-As regras visuais estão em [`design-system/README.md`](./design-system/README.md); decisões de uso e limites ficam em [`design-system/componentes.md`](./design-system/componentes.md). As APIs dos componentes vivem no código em `apps/web/src/components`; `/componentes` é uma galeria interativa de exemplos.
+O build gera a PWA em `apps/web/dist` e a API em `apps/api/dist`. O [`Dockerfile`](./Dockerfile) constrói o serviço único, aplica as migrações PostgreSQL e inicia a API que serve a PWA e os endpoints `/api`. `pnpm preview` serve somente a interface do Vite; não substitui a execução completa do serviço.
+
+## Fontes do projeto
+
+- [`docs/modelagem-mobile-v1.md`](./docs/modelagem-mobile-v1.md): fluxos e regras de produto residencial.
+- [`docs/admin-backend-contract.md`](./docs/admin-backend-contract.md): dados e operações do console administrativo.
+- [`docs/backend-deployment-contract-v1.md`](./docs/backend-deployment-contract-v1.md): autenticação, persistência, privacidade operacional, variáveis e deploy.
+- [`design-system/README.md`](./design-system/README.md) e [`design-system/componentes.md`](./design-system/componentes.md): regras visuais e escolha de componentes.
+- A rota `/componentes` na PWA mostra a galeria interativa da biblioteca.
+
+O manual de marca em `design-system/index.html` também pode ser aberto diretamente, sem build.
 
 ## Licença
 
-O código original do app e a documentação técnica estão sob GNU AGPL-3.0-only. O nome, os logos e as artes da identidade visual estão reservados e não são licenciados junto com o código. As fontes mantêm suas licenças SIL OFL. Consulte [LICENSING.md](./LICENSING.md) para o escopo completo.
-
-## Publicação da PWA
-
-Sirva `apps/web/dist` na raiz da origem, com HTTPS. A hospedagem deve encaminhar rotas como `/componentes` e `/acesso` para `index.html`. O primeiro acesso precisa de conexão; depois, o shell e seus arquivos essenciais ficam disponíveis offline. O service worker é gerado somente no build de produção. O manifest usa os PNGs existentes, inclusive maskable e Apple touch icon. O console, as simulações de autenticação, credenciais e fixtures da demo não entram no build público. `/acesso` continua fechado até existir backend para autenticação, autorização e envio de e-mails reais.
+O código original do app e a documentação técnica estão sob GNU AGPL-3.0-only. O nome, os logos e as artes da identidade visual estão reservados e não são licenciados junto com o código. As fontes mantêm suas licenças SIL OFL. Consulte [`LICENSING.md`](./LICENSING.md) para o escopo completo.

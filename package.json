@@ -3,12 +3,13 @@
   "private": true,
   "packageManager": "pnpm@12.6.0",
   "scripts": {
-    "dev": "pnpm --filter @chega-de-briga/web dev",
-    "build": "pnpm tokens:build && pnpm --filter @chega-de-briga/web build",
+    "dev": "pnpm --filter @chega-de-briga/domain build && pnpm --filter @chega-de-briga/web dev",
+    "api:dev": "pnpm --filter @chega-de-briga/domain build && pnpm --filter @chega-de-briga/api dev",
+    "build": "pnpm tokens:build && pnpm --filter @chega-de-briga/domain build && pnpm --filter @chega-de-briga/web build && pnpm --filter @chega-de-briga/api build",
     "preview": "pnpm --filter @chega-de-briga/web preview",
     "tokens:build": "pnpm --filter @chega-de-briga/design-system tokens:build",
     "tokens:check": "pnpm --filter @chega-de-briga/design-system tokens:check",
-    "check": "pnpm tokens:check && pnpm --filter @chega-de-briga/web check && node design-system/check-interactions.mjs"
+    "check": "pnpm tokens:check && pnpm --filter @chega-de-briga/domain check && pnpm --filter @chega-de-briga/web check && pnpm --filter @chega-de-briga/api check && node design-system/check-interactions.mjs"
   },
   "devDependencies": {
     "style-dictionary": "^5.6.0"

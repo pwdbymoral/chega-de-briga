@@ -8,7 +8,8 @@ Preserve as decisões aprovadas. Este arquivo guarda restrições que valem para
 - Antes de qualquer mudança que altere interface, interação, estilo ou apresentação da PWA, use `$chega-de-briga-frontend`. A skill encaminha aos documentos canônicos pelo tipo de decisão.
 - Use fontes únicas: convenções gerais de implementação ficam em [`design-system/README.md`](./design-system/README.md); escolhas e limites de componentes, em [`design-system/componentes.md`](./design-system/componentes.md). O [`index.html`](./design-system/index.html) é visual: pode demonstrar os padrões e apontar para os guias, sem copiar suas instruções. Em outros documentos de agente, use links.
 - Não conecte backend, autenticação ou envio de e-mail reais, nem inclua o console no build público, sem pedido explícito.
-- Ao alterar acesso, console ou métricas, consulte o código afetado e [`docs/admin-backend-contract.md`](./docs/admin-backend-contract.md). Use o README para questões de publicação.
+- Backend, autenticação, dados residenciais, e-mail, push ou deploy: consulte [`docs/backend-deployment-contract-v1.md`](./docs/backend-deployment-contract-v1.md) antes de implementar; ele centraliza as decisões aprovadas e os limites operacionais.
+- Ao alterar acesso, console ou métricas, consulte o código afetado e [`docs/admin-backend-contract.md`](./docs/admin-backend-contract.md). Use o README para comandos e publicação.
 
 ## Como evitar retrabalho
 

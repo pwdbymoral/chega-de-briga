@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@chega-de-briga/design-system": "workspace:*",
+    "@chega-de-briga/domain": "workspace:*",
     "@tanstack/react-query": "^5.104.1",
     "lucide-react": "^1.53.0",
     "react": "^19.3.0",
@@ -31,6 +32,7 @@
     "typescript": "^7.0.2",
     "vite": "^8.3.4",
     "vite-plugin-pwa": "^2.0.0",
+    "workbox-precaching": "^7.4.1",
     "vitest": "^5.0.3"
   }
 }

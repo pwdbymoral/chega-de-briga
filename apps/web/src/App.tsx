@@ -26,12 +26,16 @@ import {
 import styles from "./App.module.css";
 
 const DevAdmin = import.meta.env.DEV
-  ? lazy(() => import("./admin/AdminApp"))
+  ? lazy(() => import("./admin/DemoAdminApp"))
+  : null;
+const ProdAdmin = !import.meta.env.DEV
+  ? lazy(() => import("./admin/ProductionAdminApp"))
   : null;
 const DevAuth = import.meta.env.DEV
-  ? lazy(() =>
-      import("./auth/AuthApp").then(({ AuthApp }) => ({ default: AuthApp })),
-    )
+  ? lazy(() => import("./auth/DemoAuthApp"))
+  : null;
+const ProdAuth = !import.meta.env.DEV
+  ? lazy(() => import("./auth/ProductionAuthApp"))
   : null;
 
 const themeOptions = [
@@ -365,16 +369,12 @@ function Access() {
           liberação da equipe pode criar uma casa.
         </p>
         <div className={styles.accessLinks}>
-          {import.meta.env.DEV && (
-            <>
-              <Link to="/entrar" className={styles.heroLink}>
-                Entrar <ArrowRight size={18} aria-hidden="true" />
-              </Link>
-              <Link to="/criar-conta" className={styles.accessTextLink}>
-                Tenho convite ou e-mail liberado
-              </Link>
-            </>
-          )}
+          <Link to="/entrar" className={styles.heroLink}>
+            Entrar <ArrowRight size={18} aria-hidden="true" />
+          </Link>
+          <Link to="/criar-conta" className={styles.accessTextLink}>
+            Tenho convite ou e-mail liberado
+          </Link>
           <Link to="/" className={styles.accessTextLink}>
             Voltar ao início
           </Link>
@@ -385,7 +385,42 @@ function Access() {
   );
 }
 
-type AuthScreen = "login" | "signup" | "recovery" | "reset" | "home" | "createHouse";
+function PrivacyNotice() {
+  return (
+    <section className={styles.privacyNotice} aria-labelledby="privacy-title">
+      <Card className={styles.privacyCard}>
+        <span className={styles.eyebrow}>PRIVACIDADE</span>
+        <h1 id="privacy-title">Aviso de privacidade</h1>
+        <p>Este aviso explica quais dados o Chega de Briga usa para oferecer a PWA, como eles são compartilhados e como pedir informações ou exercer seus direitos.</p>
+
+        <h2>Quem é responsável</h2>
+        <p><strong>65.086.651 VINICIUS MORAES VALENCA VARJAO</strong>, que atua sob a marca ForjaCorp. Contato: <a href="mailto:forjacorp@gmail.com">forjacorp@gmail.com</a>.</p>
+
+        <h2>Dados usados</h2>
+        <ul>
+          <li><strong>Conta:</strong> nome, e-mail, senha protegida por hash, confirmação de e-mail e registros de sessão.</li>
+          <li><strong>Casa:</strong> nome da casa, moradores e papéis, tarefas e recorrências, responsáveis, ocorrências, lista de compras e convites. Os moradores da casa veem os dados compartilhados nela.</li>
+          <li><strong>Uso e segurança:</strong> eventos necessários para métricas, operação e auditoria administrativa, como horário de acesso e alterações identificadas por tipo e IDs; ações de autorização também podem registrar o e-mail afetado.</li>
+          <li><strong>Lembretes:</strong> horário e preferência de notificação, além da assinatura técnica do dispositivo. Um push pode mostrar os títulos das tarefas atribuídas à pessoa.</li>
+          <li><strong>Armazenamento no aparelho:</strong> a PWA mantém em IndexedDB uma sessão em cache e uma cópia local do estado da casa e de alterações pendentes de compras, para consulta e uso offline. Ao sair conectado, o app tenta limpar essa cópia; ela também pode ser apagada nas configurações do navegador.</li>
+        </ul>
+
+        <h2>Finalidades e compartilhamento</h2>
+        <p>Usamos os dados para autenticar contas, permitir o uso compartilhado da casa, sincronizar tarefas e compras, enviar convites e e-mails de acesso, entregar lembretes escolhidos pela pessoa, proteger o serviço e produzir métricas administrativas sem títulos de tarefas ou itens de compras.</p>
+        <p>O conteúdo doméstico é compartilhado com os membros da mesma casa. E-mails transacionais são enviados pelo Gmail. Notificações passam pelos serviços de push do navegador e do sistema operacional. O serviço usa PostgreSQL em um servidor configurado pela ForjaCorp.</p>
+
+        <h2>Retenção e exclusão</h2>
+        <p>Dados da conta e da casa permanecem enquanto a conta e os registros compartilhados existirem. Eventos de uso são removidos após 90 dias; auditorias administrativas, após 12 meses; cópias de backup, em até 30 dias. O histórico doméstico pode ser mantido de forma anonimizada quando outros moradores ainda dependem dele. Encerrar uma conta também remove suas sessões e assinaturas de push.</p>
+        <p>O perfil permite baixar uma cópia dos dados e iniciar a exclusão da conta. Uma conta que também tenha acesso administrativo precisa ter esse papel removido antes da exclusão completa.</p>
+
+        <h2>Seus direitos</h2>
+        <p>Você pode pedir confirmação e acesso aos dados, correção, anonimização, bloqueio, portabilidade e eliminação quando aplicável, além de informações sobre compartilhamento. Também pode revogar consentimentos e se opor ao tratamento nos casos previstos em lei. Escreva para <a href="mailto:forjacorp@gmail.com">forjacorp@gmail.com</a>. Consulte as <a href="https://www.gov.br/anpd/pt-br/assuntos/titular-de-dados/direito-dos-titulares" target="_blank" rel="noreferrer">informações da ANPD sobre direitos dos titulares</a>.</p>
+      </Card>
+    </section>
+  );
+}
+
+type AuthScreen = "login" | "signup" | "recovery" | "reset" | "verify" | "home" | "createHouse";
 
 function AuthRoute({
   screen,
@@ -394,10 +429,11 @@ function AuthRoute({
   screen: AuthScreen;
   themeControl: ReactNode;
 }) {
-  if (!DevAuth) return <Access />;
+  const Auth = DevAuth ?? ProdAuth;
+  if (!Auth) return <Access />;
   return (
     <Suspense fallback={<ConsoleLoading />}>
-      <DevAuth screen={screen} themeControl={themeControl} />
+      <Auth screen={screen} themeControl={themeControl} />
     </Suspense>
   );
 }
@@ -465,18 +501,17 @@ export function App() {
     const timer = window.setTimeout(() => setShowStartupSplash(false), 900);
     return () => window.clearTimeout(timer);
   }, [showStartupSplash]);
-  const isAdmin = import.meta.env.DEV && location.pathname.startsWith("/admin");
+  const isAdmin = location.pathname.startsWith("/admin");
   const authScreens: Record<string, AuthScreen> = {
     "/entrar": "login",
     "/criar-conta": "signup",
     "/esqueci-senha": "recovery",
     "/redefinir-senha": "reset",
+    "/confirmar-email": "verify",
     "/casa": "home",
     "/criar-casa": "createHouse",
   };
-  const authScreen = import.meta.env.DEV
-    ? authScreens[location.pathname] ?? (location.pathname.startsWith("/casa/") ? "home" : undefined)
-    : undefined;
+  const authScreen = authScreens[location.pathname] ?? (location.pathname.startsWith("/casa/") ? "home" : undefined);
   const isStandalone = isAdmin || Boolean(authScreen);
   const authPage = (screen: AuthScreen) => (
     <AuthRoute
@@ -544,23 +579,28 @@ export function App() {
           <Route path="/" element={<Home />} />
           <Route path="/componentes" element={<Gallery />} />
           <Route path="/acesso" element={<Access />} />
-          {DevAuth && (
+          <Route path="/privacidade" element={<PrivacyNotice />} />
+          {(DevAuth || ProdAuth) && (
             <>
               <Route path="/entrar" element={authPage("login")} />
               <Route path="/criar-conta" element={authPage("signup")} />
               <Route path="/esqueci-senha" element={authPage("recovery")} />
               <Route path="/redefinir-senha" element={authPage("reset")} />
+              <Route path="/confirmar-email" element={authPage("verify")} />
               <Route path="/casa" element={authPage("home")} />
               <Route path="/casa/*" element={authPage("home")} />
               <Route path="/criar-casa" element={authPage("createHouse")} />
             </>
           )}
-          {DevAdmin && (
+          {(DevAdmin || ProdAdmin) && (
             <Route
               path="/admin/*"
               element={
                 <Suspense fallback={<ConsoleLoading />}>
-                  <DevAdmin
+                  {(() => {
+                    const Admin = DevAdmin ?? ProdAdmin;
+                    if (!Admin) return null;
+                    return <Admin
                     themeControl={
                       <ThemeActions
                         theme={theme}
@@ -569,7 +609,8 @@ export function App() {
                         compact
                       />
                     }
-                  />
+                  />;
+                  })()}
                 </Suspense>
               }
             />
@@ -584,6 +625,7 @@ export function App() {
         <footer className={styles.footer}>
           <img src="/logo-invertido.svg" alt="Chega de Briga" />
           <p>Casa compartilhada. Responsabilidade também.</p>
+          <Link to="/privacidade">Aviso de privacidade</Link>
         </footer>
       )}
       <PwaStatus />

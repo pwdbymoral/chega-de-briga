@@ -2,14 +2,15 @@
 
 **Estado:** modelo de produto consolidado para a v1. Define navegação, fluxos e comportamento; não é especificação visual nem implementação das telas residenciais.
 
-**Estado atual do código:** há uma demo de autenticação e criação de casa, sem backend residencial nem fluxos de tarefas. O cadastro público continua fechado. Este modelo descreve o produto pretendido, não funcionalidades já disponíveis.
+**Estado atual do código:** há demos locais de autenticação e criação de casa, além de telas navegáveis para tarefas, compras, perfil e gestão da casa. Não há backend residencial: os dados de casa são gerados localmente, as alterações ficam em memória e se perdem ao recarregar; e-mail, sincronização offline e push ainda não estão conectados. O cadastro público continua fechado. As telas demonstram os fluxos, mas não tornam essas funções disponíveis para uso real.
 
 ## Fontes de verdade
 
 - Este documento: telas, jornadas e regras de produto do app residencial.
 - [Design system](../design-system/README.md): marca, tokens e regras visuais.
 - [Escolha de componentes](../design-system/componentes.md): quando usar cada componente ou padrão. APIs ficam no código em `apps/web/src/components`.
-- [Contrato do backend administrativo](./admin-backend-contract.md): somente o console administrativo; não define o backend residencial.
+- [Contrato do backend residencial e deploy](./backend-deployment-contract-v1.md): autenticação, API, segurança e operação; não redefine regras de produto daqui.
+- [Contrato do backend administrativo](./admin-backend-contract.md): entidades e operações do console.
 
 Não duplicar aqui cores, espaçamentos, props ou inventário de componentes. Antes de criar componentes, comparar as necessidades validadas com o código e com a galeria `/componentes`.
 
@@ -66,6 +67,7 @@ Sem sessão
 ├── Entrar
 ├── Criar conta por convite ou autorização
 ├── Recuperar senha / redefinir senha
+├── Aviso de privacidade
 └── Prévia e aceitação de convite
 
 Com sessão
@@ -206,7 +208,7 @@ Tarefas e rotinas seguem outro limite offline: a última cópia sincronizada fic
 
 **Retenção local:** enquanto a pessoa estiver conectada, manter a última cópia sincronizada de tarefas, rotinas e compras, além das ações de compra ainda pendentes. Pedir armazenamento persistente quando disponível, sem prometer que o navegador não removerá dados. Ao sair da conta, apagar os dados locais da casa. Se houver ações de compra pendentes, tentar sincronizar primeiro; sem conexão, explicar quantas mudanças podem ser descartadas e pedir confirmação explícita antes de sair. A interface nunca garante que alterações não sincronizadas estejam protegidas contra limpeza do armazenamento.
 
-O service worker atual mantém o shell do app, não os dados da casa. A implementação precisará de persistência local estruturada para a cópia de leitura e protocolo próprio de sincronização das compras. Background Sync pode ser melhoria onde houver suporte; o fluxo não pode depender exclusivamente dessa API.
+**Implementação atual:** o service worker mantém o shell da PWA; IndexedDB armazena a sessão em cache, a última cópia da casa e ações de compras pendentes. Tarefas e rotinas ficam somente para consulta offline. A lista sincroniza ao abrir e quando a conexão retorna; conflitos de versão são resolvidos na interface. Em primeiro plano, o app atualiza dados compartilhados ao retomar a aba e a cada 30 segundos. O app solicita armazenamento persistente quando o navegador oferece a API, sem garantir que a solicitação será aceita. Background Sync não é requisito do fluxo.
 
 ### 7. Seletor e gestão da casa
 
@@ -229,9 +231,12 @@ Acessível pelo avatar, separado da gestão da casa:
 1. Nome e e-mail da conta.
 2. Editar nome; alterar e-mail/senha em fluxo autenticado.
 3. Lembrete diário: ativar/desativar e escolher o horário; padrão **08:00** no fuso da casa (escolha de produto, editável por pessoa). A notificação lista as tarefas atribuídas à pessoa, vencidas ou previstas para aquele dia; **A combinar** não gera push antes de alguém assumir. Não enviar push para cada mudança na lista de compras. Solicitar permissão somente após a pessoa tocar **Ativar notificações**; se o aparelho/navegador não aceitar push ou a permissão for negada, as tarefas continuam visíveis no Início enquanto o app estiver aberto, sem simular uma notificação do sistema.
-4. **Sair**.
+4. Link para **Aviso de privacidade**, também disponível antes de criar conta.
+5. **Baixar meus dados** gera a exportação JSON da conta e dos registros compartilhados acessíveis, sem expor e-mails de outros moradores.
+6. **Excluir conta** abre uma tela própria que explica o impacto e, quando necessário, conduz à transferência da responsabilidade. A confirmação final é contextual; seguir os padrões canônicos do [guia de componentes](../design-system/componentes.md). Se a pessoa for a única moradora de uma casa, essa casa e seus dados são apagados junto. Se for a última responsável em uma casa com outras pessoas, precisa transferir o papel antes.
+7. **Sair**.
 
-Exclusão de conta exige política de dados e fluxo próprio; não é uma ação escondida em um diálogo genérico.
+O conteúdo da exportação, a exclusão/anonimização e os prazos de retenção são definidos em [backend-deployment-contract-v1.md](./backend-deployment-contract-v1.md); este documento mantém apenas o comportamento visível para a pessoa.
 
 ## Regras transversais e estados
 
@@ -258,7 +263,7 @@ Exclusão de conta exige política de dados e fluxo próprio; não é uma ação
 
 ## Próximo passo
 
-As decisões de produto necessárias para desenhar os fluxos da v1 estão fechadas. O inventário comparou esses fluxos com os componentes existentes; Toast já cobre feedback reversível. `BottomSheet` e `ConfirmDialog` foram adicionados para escolhas curtas e confirmações importantes. O shell residencial e telas navegáveis começaram como demonstração local, sem conexão com o backend. Expiração de convites, exclusão/retensão de conta e contrato de sincronização continuam para a etapa do backend.
+As decisões de produto necessárias para desenhar os fluxos da v1 estão fechadas. O inventário comparou esses fluxos com os componentes existentes; Toast já cobre feedback reversível. `BottomSheet` e `ConfirmDialog` foram adicionados para escolhas curtas e confirmações importantes. O shell residencial e telas navegáveis continuam demonstrações locais, sem conexão com o backend. Expiração de convites, exclusão/exportação/retenção de conta e contrato de sincronização já têm regras documentadas nos contratos de backend.
 
 Push exige integração de backend e permissão do aparelho; a modelagem define o comportamento, mas o código atual não envia notificações. No iOS/iPadOS, Web Push está disponível para web apps adicionados à Tela de Início desde a versão 16.4 e exige ação direta para solicitar permissão. A sincronização offline também depende de contrato/backend residencial ainda inexistente.
 

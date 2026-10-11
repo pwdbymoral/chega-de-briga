@@ -2,8 +2,7 @@ import type { AuthSession, HouseholdRole } from "../admin/contracts";
 
 export type Repeat = "once" | "daily" | "weekly" | "fortnightly" | "monthly";
 export type OwnerMode = "fixed" | "rotation" | "agree";
-export type ResidentTask = {
-  id: string;
+export type TaskInput = {
   title: string;
   dueDate?: string;
   repeat: Repeat;
@@ -15,11 +14,16 @@ export type ResidentTask = {
   rotationIndex: number;
   completionScope: string;
   activeTime: string;
+};
+export type ResidentTask = TaskInput & {
+  id: string;
   paused: boolean;
   ended: boolean;
   completed: boolean;
   skipped: boolean;
   nextStartDate?: string;
+  occurrenceKey?: string;
+  seriesBase?: TaskInput;
 };
 export type ResidentMember = { id: string; name: string; email?: string; role: HouseholdRole };
 export type ShoppingItem = { id: string; name: string; quantity: string; priority: "next" | "before" };
@@ -265,5 +269,18 @@ export function taskAssigneeLabel(task: ResidentTask, members: ResidentMember[])
   return task.ownerMode === "rotation" ? `Revezamento · ${name}` : name;
 }
 
-
-export type TaskInput = Omit<ResidentTask, "id" | "completed" | "skipped" | "paused" | "ended" | "nextStartDate">;
+export function taskInput(task: ResidentTask): TaskInput {
+  return {
+    title: task.title,
+    dueDate: task.dueDate,
+    repeat: task.repeat,
+    weeklyDays: task.weeklyDays,
+    anchorDay: task.anchorDay,
+    ownerMode: task.ownerMode,
+    assigneeId: task.assigneeId,
+    rotation: task.rotation,
+    rotationIndex: task.rotationIndex,
+    completionScope: task.completionScope,
+    activeTime: task.activeTime,
+  };
+}

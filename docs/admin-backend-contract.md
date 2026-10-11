@@ -1,22 +1,24 @@
-# Contrato para o futuro backend administrativo
+# Contrato do backend administrativo
 
-Este documento descreve o modelo de dados e as operações que a interface em `apps/web/src/admin` espera. O console atual é **apenas uma demonstração local em desenvolvimento**. A checagem de permissão feita no navegador não protege dados. Antes de habilitar estas rotas em produção, o servidor terá de autenticar a pessoa administradora e autorizar **cada** leitura e mutação. O build público atual não contém o console.
+Este documento define o domínio administrativo e as métricas usadas por `apps/web/src/admin`. O gateway de produção e as rotas protegidas existem; `/admin` usa o backend no build de produção e mantém dados simulados somente no Vite de desenvolvimento. A implantação ainda precisa ser verificada. A arquitetura, autenticação, retenção e provisionamento ficam em [backend-deployment-contract-v1.md](./backend-deployment-contract-v1.md); as regras do produto residencial ficam em [modelagem-mobile-v1.md](./modelagem-mobile-v1.md).
 
 ## Entidades e relações
 
 | Entidade | Campos essenciais | Chaves e restrições |
 | --- | --- | --- |
-| `users` | `id`, `email_normalized`, `name`, `status`, `access_grant_id`, `created_at`, `last_seen_at` | `id` imutável; e-mail normalizado único entre contas não excluídas; FK para concessão de acesso; estado `active`, `suspended`, `deleted` |
-| `households` | `id`, `name`, `created_at` | `id` imutável |
-| `memberships` | `user_id`, `household_id`, `role`, `joined_at` | FK para as duas entidades; par `(user_id, household_id)` único; papel `owner` ou `member`; casa com pelo menos um owner ativo |
-| `access_grants` | `id`, `email_normalized`, `source`, `created_at` | concessão histórica imutável; origem `allowlist`, `admin_invite` ou `resident_invite`; `users.access_grant_id` preserva o vínculo mesmo após edição do e-mail |
+| `accounts` | `id`, `email`, `password_hash`, `email_verified_at`, `created_at` | identidade canônica; e-mail normalizado e único; uma senha compartilhada por todos os papéis da identidade |
+| `users` | `id`, `account_id`, `name`, `status`, `source`, `access_id`, `created_at`, `last_seen_at` | papel residencial ligado a `accounts`; um registro por identidade; estado `ativo`, `suspenso`, `excluido` |
+| `platform_admins` | `id`, `account_id`, `totp_secret`, `created_at`, `last_seen_at` | papel administrativo ligado à mesma identidade; TOTP obrigatório; sessão própria; papel residencial não concede administração |
+| `households` | `id`, `name`, `timezone`, `created_at` | `id` imutável; fuso IANA definido na criação e usado para datas residenciais |
+| `memberships` | `user_id`, `household_id`, `role`, `joined_at` | FK para as duas entidades; par `(user_id, household_id)` único; papel `responsavel` ou `morador`; casa com pelo menos um responsável ativo |
+| `access_grants` | `id`, `email`, `source`, `created_at` | concessão histórica; origem `lista`, `convite_admin` ou `convite_morador`; `users.access_id` preserva o vínculo mesmo após mudança de e-mail |
 | `allow_entries` | `id`, `access_grant_id`, `revoked_at`, `created_by` | FK única para concessão; uma autorização ativa por e-mail; revogação não altera conta já criada |
 | `invitations` | `id`, `access_grant_id`, `household_id`, `inviter_user_id`, `status`, `expires_at`, `accepted_at`, `revoked_at` | FK única para concessão; convite de morador exige casa e convidador membro ativo; expiração após 7 dias; token secreto armazenado **somente como hash**, nunca no payload administrativo |
-| `task_metadata` | `id`, `household_id`, `created_at`, `due_at`, `completed_at` | somente os campos necessários para métricas; títulos, descrições, comentários e anexos pertencem ao domínio privado de tarefas e não entram nas respostas do console |
+| `task_metadata` | `id`, `household_id`, `created_at`, `due_at`, `completed_at`, `is_open` | campos necessários para métricas; não entram títulos ou descrições nas respostas do console |
 | `activity_events` | `id`, `event_type`, `user_id?`, `household_id?`, `occurred_at` | eventos append-only com idempotência por ID; tipos abaixo |
 | `admin_audit_events` | `id`, `actor_admin_id`, `action`, `target_type`, `target_id`, `occurred_at`, `request_id` | append-only; nunca incluir senha, token ou conteúdo doméstico |
 
-IDs são opacos, estáveis e não devem codificar e-mail. Timestamps são ISO 8601 UTC. E-mails são normalizados no servidor antes de verificar unicidade; o endereço original pode ser preservado para exibição se necessário. Deleção real e prazo de retenção exigem política de privacidade própria; a demo apenas anonimiza o perfil em memória.
+IDs são opacos, estáveis e não devem codificar e-mail. Timestamps são ISO 8601 UTC. Endereços exibidos nos contratos administrativos são lidos da identidade `accounts`, não duplicados em `users`. Uma identidade pode ter os dois papéis e usa a mesma senha; a sessão administrativa exige TOTP e não reutiliza o cookie residencial. Política de exclusão e retenção está no contrato de backend/deploy.
 
 ## Entrada restrita
 
@@ -27,34 +29,33 @@ O cadastro público começa fechado. Há dois caminhos de elegibilidade:
 
 O servidor deve validar token, e-mail, expiração e estado em cada aceitação, limitar tentativas e consumo duplicado, e registrar quem convidou. Pode haver convites válidos para casas diferentes; impedir duplicação de convite pendente para o mesmo par e-mail/casa. Convites de moradores só podem ser criados por um membro ativo da própria casa; administradores podem criar convites gerais ou vinculados. Reenvio revoga o token anterior e cria outro com nova validade de sete dias. Revogar lista ou convite pendente **não** suspende uma conta já criada. Suspensão de conta é operação separada.
 
-O login administrativo precisa de autenticação real com sessão segura e papel de plataforma separado de `memberships.role`. Nenhuma pessoa recebe permissão de plataforma por ser responsável por uma casa. Autorizar leitura e escrita no servidor, negar por padrão, auditar mudanças e evitar retornar dados sensíveis no payload.
+O login administrativo precisa de autenticação real com sessão segura e papel de plataforma separado de `memberships.role`. Nenhuma pessoa recebe permissão de plataforma por ser responsável por uma casa. Uma identidade admin que também tenha papel residencial acessa conteúdo doméstico somente pela própria sessão residencial e pelos vínculos explícitos. Autorizar leitura e escrita no servidor, negar por padrão, auditar mudanças e evitar retornar dados sensíveis no payload.
 
 ## Operações esperadas pelo `AdminGateway`
 
-O tipo TypeScript em `apps/web/src/admin/contracts.ts` é o contrato de apresentação. O futuro adaptador HTTP deve preservar semântica e estados de erro. Sugestão de endpoints:
+O tipo TypeScript em `apps/web/src/admin/contracts.ts` é o contrato de apresentação; `apps/web/src/admin/httpGateway.ts` mapeia as operações para as rotas reais. O gateway deve preservar semântica e estados de erro:
 
 | Método e rota | Entrada | Saída / regra |
 | --- | --- | --- |
-| `POST /admin/session` | e-mail, senha | sessão administrativa; cookie seguro no backend |
-| `GET /admin/session`, `DELETE /admin/session` | — | estado da sessão / encerramento |
-| `GET /admin/users` | `search`, `status`, `page`, `page_size` | `items`, `total`, `page`, `pages`; ordenação estável; busca por nome/e-mail |
-| `GET /admin/users/:id` | ID | perfil, vínculos, metadados de atividade e auditoria pertinente; sem conteúdo de tarefas |
-| `PATCH /admin/users/:id` | nome, e-mail | perfil atualizado; checar unicidade |
-| `PATCH /admin/users/:id/status` | `active` ou `suspended` | estado atualizado; não deixar casa sem responsável ativo |
-| `DELETE /admin/users/:id` | confirmação | exclusão conforme política de privacidade; não deixar casa sem responsável ativo |
-| `PATCH /admin/households/:id/members/:userId` | `role` | vínculo atualizado; transação protege último responsável |
-| `GET /admin/access` | paginação e filtros futuros | lista de autorizações e convites, inclusive convites de moradores |
-| `POST /admin/allow-entries`, `DELETE /admin/allow-entries/:id` | e-mail / ID | criar ou revogar autorização |
-| `POST /admin/invitations`, `POST /admin/invitations/:id/resend`, `DELETE /admin/invitations/:id` | e-mail, casa opcional / ID | criar, reenviar ou revogar; envio de e-mail fora da transação por fila com idempotência |
-| `GET /admin/households`, `GET /admin/households/:id` | filtros e paginação futuros / ID | casa, membros, contagens e eventos permitidos; sem títulos, descrições ou anexos |
-| `GET /admin/analytics` | `period=7|30|90`, `source`, `size` | agregados, denominadores, intervalo, coortes, série e insights explicáveis |
-| `GET /admin/analytics.csv` | mesmos filtros | CSV agregado, sem identificadores pessoais |
+| `POST /api/admin/session` | e-mail, senha e TOTP | sessão administrativa; cookie seguro no backend |
+| `GET /api/admin/session`, `DELETE /api/admin/session` | — | estado da sessão / encerramento |
+| `GET /api/admin/users` | `search`, `status`, `page`, `page_size` | `items`, `total`, `page`, `pages`; ordenação estável; busca por nome/e-mail |
+| `GET /api/admin/users/:id` | ID | perfil, vínculos, metadados de atividade e auditoria pertinente; sem conteúdo de tarefas |
+| `PATCH /api/admin/users/:id` | nome, e-mail | perfil atualizado; mudança de e-mail exige nova verificação; bloqueada se afetar identidade que também tem papel admin |
+| `PATCH /api/admin/users/:id/status` | `active` ou `suspended` | estado atualizado; não deixar casa sem responsável ativo |
+| `PATCH /api/admin/households/:id/members/:userId` | `role` | vínculo atualizado; transação protege último responsável |
+| `GET /api/admin/access` | paginação e filtros futuros | lista de autorizações e convites, inclusive convites de moradores |
+| `POST /api/admin/allow-entries`, `DELETE /api/admin/allow-entries/:id` | e-mail / ID | criar ou revogar autorização |
+| `POST /api/admin/invitations`, `POST /api/admin/invitations/:id/resend`, `DELETE /api/admin/invitations/:id` | e-mail, casa opcional / ID | criar, reenviar ou revogar; usar o outbox do contrato de backend/deploy |
+| `GET /api/admin/households`, `GET /api/admin/households/:id` | filtros e paginação futuros / ID | casa, membros, contagens e eventos permitidos; sem títulos, descrições ou anexos |
+| `GET /api/admin/analytics` | `period=7|30|90`, `source`, `size` | agregados, denominadores, intervalo, coortes, série e insights explicáveis |
+| Exportar CSV | Gerado no cliente a partir de `GET /api/admin/analytics` | Contém apenas os agregados já retornados pela API. |
 
-Erros estruturados: `{ code, message, request_id }`. Códigos mínimos: `unauthenticated` (401), `forbidden` (403), `not_found` (404), `duplicate_email` (409), `sole_owner` (409), `invalid_state` (409), `validation` (422), `rate_limited` (429). Não diferenciar publicamente e-mail existente de inexistente em fluxos de cadastro e convite. Listagens devem impor tamanho de página máximo, filtros validados e ordenação determinística. Mutação e auditoria devem compartilhar transação. IDs de requisição e chaves de idempotência protegem reenvio, convite e aceitação contra repetição.
+Erros estruturados: `{ code, message, request_id }`. Códigos mínimos: `unauthenticated` (401), `forbidden` (403), `not_found` (404), `duplicate_email` (409), `sole_owner` (409), `invalid_state` (409), `validation` (422), `rate_limited` (429). Não diferenciar publicamente e-mail existente de inexistente em fluxos de cadastro e convite. Listagens devem impor tamanho de página máximo, filtros validados e ordenação determinística. Para atomicidade, auditoria e idempotência, seguir o contrato de backend/deploy.
 
 ## Eventos e métricas
 
-Eventos mínimos: `account_created`, `access`, `household_joined`, `task_created`, `task_completed`. Associar `occurred_at`, `user_id?`, `household_id?`, `source` quando aplicável e ID único. Registrar mudança de papel, suspensão, reativação, exclusão e revogações na auditoria, separada da atividade de produto. Eventos devem ser emitidos de transações concluídas, sem payload de conteúdo doméstico.
+Eventos atuais: `conta_criada`, `acesso`, `entrada_casa`, `tarefa_criada`, `tarefa_concluida`, `tarefa_pulada` e `tarefa_editada`. Associar `occurred_at`, `user_id?`, `household_id?` e ID único; não guardar conteúdo de tarefa/lista em eventos. Mudanças administrativas usam `admin_audit_events`, separado da atividade de produto.
 
 Todas as métricas usam intervalo UTC fechado no fim e origem/tamanho selecionados. O frontend exibe intervalo e denominadores. O backend deve retornar agregados, não linhas brutas:
 
@@ -65,8 +66,8 @@ Todas as métricas usam intervalo UTC fechado no fim e origem/tamanho selecionad
 - **Acúmulo:** tarefas sem `completed_at` e `due_at` anterior ao instante da consulta, com denominador de todas as tarefas abertas nas casas do segmento. Nenhum título de tarefa é necessário.
 - **Insights:** maior queda absoluta entre etapas, diferença descritiva de retenção no mesmo grupo e proporção de vencidas em aberto. Se menos de dez casas maduras no funil, sinalizar amostra pequena e evitar conclusões fortes. Sinais de precificação são hipóteses de uso por tamanho, sem estimar receita ou disposição a pagar.
 
-O CSV deve conter apenas linhas agregadas de funil, casas ativas, coortes e tarefas em aberto. Aplicar supressão ou agrupamento de células pequenas na produção se combinações de filtros puderem reidentificar uma casa. Definir prazo de retenção de eventos e base legal/finalidade antes de coletar dados reais; evitar analytics de conteúdo doméstico.
+O CSV do cliente contém somente os agregados recebidos. A API não oferece uma rota CSV separada.
 
 ## Estados da interface e limites atuais
 
-`AdminGateway` é assíncrono; a interface trata carregamento, vazio, erro e sucesso. TanStack Query invalida consultas relacionadas após mutações. O adaptador de demonstração mantém alterações só em memória; recarregar a página restaura as fixtures, enquanto a flag de sessão de demonstração dura a aba. Nenhum e-mail é enviado. O build de produção serve `/acesso` com cadastro fechado e exclui o módulo administrativo. Antes da publicação do console, substituir o gateway, implantar autorização no servidor e revisar acessibilidade, segurança e privacidade com dados reais.
+`AdminGateway` é assíncrono; a interface trata carregamento, vazio, erro e sucesso. TanStack Query invalida consultas relacionadas após mutações. O gateway demo mantém alterações em memória e não envia e-mail; o build de produção conecta ao backend e não inclui fixtures nem credenciais demo. O cadastro continua restrito por `/acesso` e pelas autorizações verificadas no servidor.

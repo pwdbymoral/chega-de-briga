@@ -2,6 +2,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useCallback,
   useState,
   type FormEvent,
   type ReactNode,
@@ -9,23 +10,28 @@ import {
 import { Link, Navigate, useLocation, useNavigate } from "react-router";
 import { ArrowRight, Eye, EyeOff, House, ShieldCheck } from "lucide-react";
 import { Button, Card, TextField } from "../components/ui";
-import { demoAuthGateway } from "../admin/mockGateway";
+import { useToast } from "../components/Toast";
 import type { AuthGateway, AuthSession, InvitationPreview } from "../admin/contracts";
 import { ResidentApp } from "../resident/ResidentApp";
+import { clearCachedHouses, readCachedSession, writeCachedSession } from "../resident/localCache";
 import styles from "./AuthApp.module.css";
 
-type Screen = "login" | "signup" | "recovery" | "reset" | "home" | "createHouse";
-const AuthGatewayContext = createContext<AuthGateway>(demoAuthGateway);
-const useAuthGateway = () => useContext(AuthGatewayContext);
+export type AuthScreen = "login" | "signup" | "recovery" | "reset" | "verify" | "home" | "createHouse";
+const AuthGatewayContext = createContext<AuthGateway | null>(null);
+const useAuthGateway = () => {
+  const gateway = useContext(AuthGatewayContext);
+  if (!gateway) throw new Error("AuthGateway is required");
+  return gateway;
+};
 
 export function AuthApp({
   screen,
   themeControl,
-  gateway = demoAuthGateway,
+  gateway,
 }: {
-  screen: Screen;
+  screen: AuthScreen;
   themeControl: ReactNode;
-  gateway?: AuthGateway;
+  gateway: AuthGateway;
 }) {
   return (
     <AuthGatewayContext.Provider value={gateway}>
@@ -34,8 +40,9 @@ export function AuthApp({
   );
 }
 
-function AuthFlow({ screen, themeControl }: { screen: Screen; themeControl: ReactNode }) {
+function AuthFlow({ screen, themeControl }: { screen: AuthScreen; themeControl: ReactNode }) {
   const gateway = useAuthGateway();
+  const { showToast } = useToast();
   const [session, setSession] = useState<AuthSession | null>();
   const [loading, setLoading] = useState(true);
 
@@ -44,17 +51,41 @@ function AuthFlow({ screen, themeControl }: { screen: Screen; themeControl: Reac
     void gateway.session().then((value) => {
       if (!current) return;
       setSession(value);
-      setLoading(false);
-    });
+    }).catch((error: unknown) => {
+      return readCachedSession().then((cached) => {
+        if (!current) return;
+        if (cached) setSession(cached);
+        else {
+          setSession(null);
+          showToast(error instanceof Error ? error.message : "Não foi possível verificar sua sessão.");
+        }
+      }).catch(() => { if (current) setSession(null); });
+    }).finally(() => current && setLoading(false));
     return () => {
       current = false;
     };
-  }, [gateway]);
+  }, [gateway, showToast]);
 
-  function updateSession(value: AuthSession | null) {
+  useEffect(() => {
+    if (session === undefined) return;
+    if (session) void writeCachedSession(session).catch(() => showToast("Não foi possível guardar a sessão para uso offline."));
+    else if (navigator.onLine) void clearCachedHouses().catch(() => showToast("Não foi possível limpar os dados locais da sessão."));
+  }, [session, showToast]);
+
+  useEffect(() => {
+    const refreshSession = () => {
+      void gateway.session().then((value) => setSession(value)).catch((error: unknown) => {
+        showToast(error instanceof Error ? error.message : "Não foi possível atualizar sua sessão.");
+      });
+    };
+    window.addEventListener("online", refreshSession);
+    return () => window.removeEventListener("online", refreshSession);
+  }, [gateway, showToast]);
+
+  const updateSession = useCallback((value: AuthSession | null) => {
     setSession(value);
     setLoading(false);
-  }
+  }, []);
 
   const shell = (content: ReactNode) => (
     <AuthLayout themeControl={themeControl}>{content}</AuthLayout>
@@ -72,6 +103,11 @@ function AuthFlow({ screen, themeControl }: { screen: Screen; themeControl: Reac
     if (!session) return <Navigate to="/entrar" replace />;
     if (!session.canCreateHouse) return <Navigate to="/casa" replace />;
     return shell(<CreateHouse onSession={updateSession} />);
+  }
+  if (screen === "verify") {
+    if (loading) return shell(<Loading />);
+    if (session) return <Navigate to="/casa" replace />;
+    return shell(<VerifyEmail onSession={updateSession} />);
   }
   if (loading) return shell(<Loading />);
   if (session) return <Navigate to="/casa" replace />;
@@ -105,12 +141,15 @@ function AuthLayout({
           </span>
         </Link>
         <div className={styles.headerActions}>
-          <span className={styles.demoTag}>DEMO LOCAL</span>
+          {import.meta.env.DEV && <span className={styles.demoTag}>DEMO LOCAL</span>}
           {themeControl}
         </div>
       </header>
       <div className={styles.layout}>
-        <section className={styles.panel}>{children}</section>
+        <section className={styles.panel}>
+          {children}
+          <p className={styles.switchFlow}><Link to="/privacidade">Aviso de privacidade</Link></p>
+        </section>
         <aside className={styles.art} aria-label="Sobre o Chega de Briga">
           <span className={styles.eyebrow}>CASA COMPARTILHADA, VIDA MAIS LEVE</span>
           <h2>
@@ -199,18 +238,24 @@ function Signup({ onSession }: { onSession: (session: AuthSession) => void }) {
   const navigate = useNavigate();
   const location = useLocation();
   const query = new URLSearchParams(location.search);
-  const invitationId = query.get("convite") ?? undefined;
+  const fragment = new URLSearchParams(location.hash.replace(/^#/, ""));
+  const invitationId = query.get("convite") ?? fragment.get("convite") ?? undefined;
   const [invitation, setInvitation] = useState<InvitationPreview>();
   const [invitationLoading, setInvitationLoading] = useState(Boolean(invitationId));
   const [invitationError, setInvitationError] = useState("");
   const [name, setName] = useState("");
-  const [email, setEmail] = useState(query.get("email") ?? "");
+  const [email, setEmail] = useState(query.get("email") ?? fragment.get("email") ?? "");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [pendingVerification, setPendingVerification] = useState(false);
+
+  useEffect(() => {
+    if (invitationId) window.history.replaceState(null, "", location.pathname);
+  }, [invitationId, location.pathname]);
 
   useEffect(() => {
     if (!invitationId) {
@@ -260,6 +305,10 @@ function Signup({ onSession }: { onSession: (session: AuthSession) => void }) {
         password,
         invitationId,
       });
+      if (!session) {
+        setPendingVerification(true);
+        return;
+      }
       onSession(session);
       navigate(
         session.memberships.length || !session.canCreateHouse
@@ -278,11 +327,14 @@ function Signup({ onSession }: { onSession: (session: AuthSession) => void }) {
     <Card className={styles.formCard}>
       <span className={styles.eyebrow}>ACESSO POR CONVITE OU LIBERAÇÃO</span>
       <h1>Criar conta</h1>
-      <p className={styles.lead}>Vamos começar pelo básico.</p>
+      <p className={styles.lead}>
+        Se este e-mail já acessa o painel admin, use a mesma senha. O acesso admin também pede TOTP.
+      </p>
       {invitationLoading ? (
         <Loading label="Conferindo convite…" />
       ) : (
         <>
+          {pendingVerification && <Feedback tone="success">Se este e-mail estiver autorizado, você receberá um link para confirmar o endereço antes do primeiro acesso.</Feedback>}
           {invitation && invitation.status === "pendente" && (
             <Feedback tone="info">
               Convite válido
@@ -316,9 +368,9 @@ function Signup({ onSession }: { onSession: (session: AuthSession) => void }) {
               id="resident-new-password"
               label="Crie uma senha"
               autoComplete="new-password"
-              minLength={8}
-              maxLength={128}
-              hint="Pelo menos 8 caracteres."
+              minLength={12}
+              maxLength={200}
+              hint="Pelo menos 12 caracteres."
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               show={showPassword}
@@ -328,8 +380,8 @@ function Signup({ onSession }: { onSession: (session: AuthSession) => void }) {
               id="resident-confirm-password"
               label="Repita a senha"
               autoComplete="new-password"
-              minLength={8}
-              maxLength={128}
+              minLength={12}
+              maxLength={200}
               value={confirmPassword}
               onChange={(event) => setConfirmPassword(event.target.value)}
               show={showConfirm}
@@ -419,7 +471,7 @@ function ResetPassword() {
   const gateway = useAuthGateway();
   const location = useLocation();
   const navigate = useNavigate();
-  const token = new URLSearchParams(location.search).get("token") ?? "";
+  const token = new URLSearchParams(location.search).get("token") ?? new URLSearchParams(location.hash.replace(/^#/, "")).get("token") ?? "";
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -427,6 +479,10 @@ function ResetPassword() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [complete, setComplete] = useState(false);
+
+  useEffect(() => {
+    if (token) window.history.replaceState(null, "", location.pathname);
+  }, [location.pathname, token]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -452,7 +508,7 @@ function ResetPassword() {
       <h1>Crie outra senha</h1>
       {complete ? (
         <div className={styles.confirmation} role="status">
-          <p>Senha alterada na demonstração. Entre com a nova senha para continuar.</p>
+          <p>Senha alterada. Entre com a nova senha para continuar.</p>
           <Button onClick={() => navigate("/entrar")}>Ir para entrar</Button>
         </div>
       ) : (
@@ -461,8 +517,8 @@ function ResetPassword() {
             id="reset-password"
             label="Nova senha"
             autoComplete="new-password"
-            minLength={8}
-            maxLength={128}
+            minLength={12}
+            maxLength={200}
             hint="Pelo menos 8 caracteres."
             value={password}
             onChange={(event) => setPassword(event.target.value)}
@@ -473,8 +529,8 @@ function ResetPassword() {
             id="reset-confirm-password"
             label="Repita a senha"
             autoComplete="new-password"
-            minLength={8}
-            maxLength={128}
+            minLength={12}
+            maxLength={200}
             value={confirmPassword}
             onChange={(event) => setConfirmPassword(event.target.value)}
             show={showConfirm}
@@ -510,7 +566,7 @@ function CreateHouse({
     setBusy(true);
     setError("");
     try {
-      onSession(await gateway.createHouse(name));
+      onSession(await gateway.createHouse(name, Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Fortaleza"));
       navigate("/casa");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Não foi possível criar a casa.");
@@ -546,6 +602,30 @@ function CreateHouse({
   );
 }
 
+function VerifyEmail({ onSession }: { onSession: (session: AuthSession | null) => void }) {
+  const gateway = useAuthGateway();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const token = new URLSearchParams(location.search).get("token") ?? new URLSearchParams(location.hash.replace(/^#/, "")).get("token") ?? "";
+  const [message, setMessage] = useState("Confirmando seu e-mail…");
+  useEffect(() => {
+    if (token) window.history.replaceState(null, "", location.pathname);
+  }, [location.pathname, token]);
+  useEffect(() => {
+    let current = true;
+    void gateway.verifyEmail(token).then((session) => {
+      if (!current) return;
+      onSession(session);
+      setMessage("E-mail confirmado. Abrindo sua casa…");
+      navigate(session.memberships.length ? "/casa" : "/criar-casa", { replace: true });
+    }).catch((error: unknown) => {
+      if (current) setMessage(error instanceof Error ? error.message : "Este link não é mais válido.");
+    });
+    return () => { current = false; };
+  }, [gateway, navigate, onSession, token]);
+  return <Card className={styles.formCard}><span className={styles.eyebrow}>CONFIRMAÇÃO DE E-MAIL</span><h1>Quase lá</h1><p className={styles.lead} role="status">{message}</p><p className={styles.switchFlow}><Link to="/entrar">Ir para entrar</Link></p></Card>;
+}
+
 function ResidentHome({
   session,
   onSession,
@@ -557,14 +637,21 @@ function ResidentHome({
 }) {
   const gateway = useAuthGateway();
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const [busy, setBusy] = useState(false);
   async function logout() {
     setBusy(true);
-    await gateway.logout();
-    onSession(null);
-    navigate("/entrar");
+    try {
+      await gateway.logout();
+      onSession(null);
+      navigate("/entrar");
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Não foi possível encerrar a sessão.");
+    } finally {
+      setBusy(false);
+    }
   }
-  return <ResidentApp session={session} onSession={onSession} themeControl={themeControl} onLogout={() => { if (!busy) void logout(); }} />;
+  return <ResidentApp session={session} onSession={onSession} gateway={gateway.residents} themeControl={themeControl} onLogout={() => { if (!busy) void logout(); }} />;
 }
 
 function PasswordField({
@@ -606,17 +693,18 @@ function Feedback({
   tone,
 }: {
   children: ReactNode;
-  tone: "info" | "error";
+  tone: "info" | "error" | "success";
 }) {
   return (
     <p className={`${styles.feedback} ${styles[tone]}`} role={tone === "error" ? "alert" : "status"}>
-      {tone === "info" && <ShieldCheck size={17} aria-hidden="true" />}
+      {tone !== "error" && <ShieldCheck size={17} aria-hidden="true" />}
       {children}
     </p>
   );
 }
 
 function DemoNote() {
+  if (!import.meta.env.DEV) return null;
   return (
     <p className={styles.demoNote}>
       Demonstração local: nenhuma conta real é criada e nenhum e-mail é enviado.

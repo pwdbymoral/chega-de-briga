@@ -7,7 +7,11 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      strategies: "injectManifest",
       registerType: "prompt",
+      srcDir: "src",
+      filename: "sw.ts",
+      injectRegister: "auto",
       includeAssets: ["*.svg", "*.png"],
       manifest: {
         id: "/",
@@ -27,9 +31,8 @@ export default defineConfig({
           { src: "/pwa-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" }
         ]
       },
-      workbox: {
+      injectManifest: {
         globPatterns: ["**/*.{html,js,css,svg,png,ttf,otf}"],
-        navigateFallback: "/index.html"
       }
     })
   ],

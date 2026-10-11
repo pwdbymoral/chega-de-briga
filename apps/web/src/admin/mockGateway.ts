@@ -11,6 +11,7 @@ import type {
   InvitationPreview,
   UserStatus,
 } from "./contracts";
+import { makeHouseData, type HouseData } from "../resident/ResidentModel";
 
 const DAY = 86_400_000;
 const stamp = (daysAgo: number) =>
@@ -589,6 +590,7 @@ export function createDemoAuthGateway(data: DataSet): AuthGateway {
   const passwords = new Map<string, string>();
   const createHousePermissions = new Map<string, boolean>();
   const resetTokens = new Map<string, { userId: string; expiresAt: number }>();
+  const houseStates = new Map<string, { version: number; data: HouseData }>();
   let currentUserId: string | undefined;
   const activeInvite = (invite: Invitation) =>
     invite.status === "pendente" && Date.parse(invite.expiresAt) > Date.now();
@@ -625,6 +627,75 @@ export function createDemoAuthGateway(data: DataSet): AuthGateway {
   };
 
   return {
+    residents: {
+      async loadHousehold(householdId) {
+        await pause();
+        let snapshot = houseStates.get(householdId);
+        if (!snapshot) {
+          const membership = data.memberships.find((item) => item.householdId === householdId);
+          const user = membership ? sessionFor(membership.userId).user : { id: "demo", name: "Morador", email: "demo@example.test" };
+          snapshot = { version: 1, data: makeHouseData(householdId, user, membership?.role ?? "responsavel") };
+          houseStates.set(householdId, snapshot);
+        }
+        return snapshot;
+      },
+      async saveHousehold(householdId, version, next) {
+        await pause();
+        const current = houseStates.get(householdId);
+        if (current && current.version !== version) throw new DemoError("estado_invalido", "Os dados mudaram em outro dispositivo.");
+        houseStates.set(householdId, { version: version + 1, data: next });
+        return { version: version + 1 };
+      },
+      async updateProfileName(name) {
+        await pause();
+        const user = data.users.find((item) => item.id === currentUserId);
+        if (user) user.name = name;
+      },
+      async exportAccount() { await pause(); return { demo: true }; },
+      async deleteAccount() { await pause(); currentUserId = undefined; },
+      async reminder() { await pause(); return { enabled: false, time: "08:00" }; },
+      async saveReminder() { await pause(); },
+      async vapidPublicKey() { await pause(); return ""; },
+      async savePushSubscription() { await pause(); },
+      async removePushSubscription() { await pause(); },
+      async renameHousehold(householdId, name) {
+        await pause();
+        const house = data.households.find((item) => item.id === householdId);
+        if (house) house.name = name;
+      },
+      async inviteResident(householdId, emailValue) {
+        await pause();
+        const email = emailKey(emailValue);
+        data.invitations.unshift({ id: id("convite"), email, source: "convite_morador", householdId, inviterId: currentUserId, status: "pendente", createdAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 7 * DAY).toISOString() });
+      },
+      async revokeInvitation(householdId, invitationId) {
+        await pause();
+        const invitation = data.invitations.find((item) => item.id === invitationId && item.householdId === householdId);
+        if (invitation) invitation.status = "revogado";
+      },
+      async leaveHousehold(householdId) {
+        await pause();
+        if (currentUserId) data.memberships = data.memberships.filter((item) => !(item.userId === currentUserId && item.householdId === householdId));
+        if (!currentUserId) throw new DemoError("credenciais", "Entre novamente.");
+        return sessionFor(currentUserId);
+      },
+      async deleteHousehold(householdId) {
+        await pause();
+        data.households = data.households.filter((item) => item.id !== householdId);
+        data.memberships = data.memberships.filter((item) => item.householdId !== householdId);
+        houseStates.delete(householdId);
+      },
+      async removeMember(householdId, userId) {
+        await pause();
+        data.memberships = data.memberships.filter((item) => !(item.householdId === householdId && item.userId === userId));
+      },
+      async transferResponsibility(householdId, userId) {
+        await pause();
+        data.memberships = data.memberships.map((item) => item.householdId === householdId ? { ...item, role: item.userId === userId ? "responsavel" : item.userId === currentUserId ? "morador" : item.role } : item);
+        if (!currentUserId) throw new DemoError("credenciais", "Entre novamente.");
+        return sessionFor(currentUserId);
+      },
+    },
     async invitation(inviteId): Promise<InvitationPreview> {
       await pause();
       const invite = lookupInvitation(inviteId);
@@ -770,6 +841,11 @@ export function createDemoAuthGateway(data: DataSet): AuthGateway {
         at: user.lastSeenAt,
       });
       return sessionFor(user.id);
+    },
+    async verifyEmail() {
+      await pause();
+      if (!currentUserId) throw new DemoError("credenciais", "Este link não é mais válido.");
+      return sessionFor(currentUserId);
     },
     async session() {
       await pause();
