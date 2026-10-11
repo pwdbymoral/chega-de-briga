@@ -1,12 +1,12 @@
 # Chega de Briga — identidade e design system
 
-Abra [o manual visual](./index.html) no navegador. Ele contém as regras de marca, exemplos de interface, temas, copy e links para baixar cada logo. Os arquivos são estáticos e não precisam de instalação.
+Abra [o manual visual](./index.html) no navegador. Ele contém as regras de marca, exemplos visuais, temas, copy e links para baixar cada logo. Decisões de uso e limites de componentes ficam em [`componentes.md`](./componentes.md). Os arquivos são estáticos e não precisam de instalação.
 
 ## Fontes de verdade
 
 - [`tokens/source.json`](./tokens/source.json): fonte canônica das cores, escala tipográfica fixa, espaçamento, formas e movimento. `pnpm tokens:build` gera [`generated/tokens.css`](./generated/tokens.css) e [`generated/tokens.native.ts`](./generated/tokens.native.ts).
 - [`tokens.css`](./tokens.css): entrada web que importa os tokens gerados e acrescenta fontes locais, tipografia fluida e movimento reduzido. A interface deve usar `--color-*`; `--brand-*` identifica as cores fixas da marca.
-- [`componentes.md`](./componentes.md): decisões de uso, limites dos componentes web e padrões de interface. As APIs e props continuam definidas pelo código em `apps/web/src/components`.
+- [`componentes.md`](./componentes.md): fonte única das decisões de uso, limites dos componentes web e padrões de interface. As APIs e props continuam definidas pelo código em `apps/web/src/components`.
 - [`assets/logo-editavel.svg`](./assets/logo-editavel.svg): assinatura principal com texto editável. Os demais logos têm letras convertidas em vetor e podem ser visualizados sem instalar fontes.
 - [`assets/`](./assets/): logos, símbolos, elementos gráficos, ícones e PNGs para a futura PWA.
 - [`fonts/`](./fonts/): Inter e Comfortaa locais, com as respectivas licenças SIL OFL.
@@ -17,13 +17,14 @@ Os arquivos de imagem em `assets/` e o nome e as marcas Chega de Briga estão re
 
 1. Importe `tokens.css` antes dos estilos dos componentes. Defina `data-theme="light"` ou `data-theme="dark"` no elemento `<html>`; se não houver escolha salva, use `prefers-color-scheme` para escolher o tema inicial.
 2. Use os papéis semânticos para superfícies, texto, estados e ações. Não copie os valores hexadecimais do manual para novos componentes.
-3. Mantenha áreas de toque com pelo menos 48 px, foco visível e rótulos legíveis. Estado nunca depende só da cor ou de um ícone. Em barras fixas da PWA, considere `env(safe-area-inset-bottom)`.
-4. Reserve a animação expressiva para momentos especiais. Os tokens de movimento respeitam `prefers-reduced-motion`.
-5. Escreva em português do Brasil: direto, cúmplice e irreverente. Humor sobre a bagunça; informação e próximo passo primeiro em erros e atrasos. Não exponha nem culpe moradores.
-6. Preserve proporção e área livre dos logos. Em espaços muito pequenos, use `simbolo.svg`.
-7. Para ícones funcionais sobre superfícies escuras, use os arquivos `icone-*-escuro.svg`; os arquivos sem sufixo são para fundos claros. Um SVG externo em `<img>` não herda `currentColor` do elemento pai.
-8. Use SVG para ícones e elementos gráficos; não use emoji como substituto. No app web, ícones utilitários usam Lucide React.
-9. No celular, empilhe ações com rótulos longos em larguras iguais. Pares curtos de navegação podem dividir a linha em duas colunas iguais. A ação secundária mantém menor peso visual.
+3. Mantenha áreas de toque com pelo menos 48 px, foco visível e rótulos legíveis. Estado e significado não dependem só de cor, ícone, movimento ou gesto. Em barras fixas da PWA, considere `env(safe-area-inset-bottom)`.
+4. Atenda à WCAG 2.2 AA: contraste mínimo de 4,5:1 para texto comum e 3:1 para texto grande e para informação visual necessária a identificar controles ou estados e entender gráficos ([contraste de texto](https://www.w3.org/TR/WCAG22/#contrast-minimum), [contraste não textual](https://www.w3.org/TR/WCAG22/#non-text-contrast)).
+5. Use respostas curtas em interações frequentes e reserve a celebração para a conclusão. Animação nunca atrasa uma ação nem substitui o estado em texto; os tokens respeitam `prefers-reduced-motion`.
+6. Escreva em português do Brasil: direto, cúmplice e irreverente. Humor sobre a bagunça; informação e próximo passo primeiro em erros e atrasos. Não exponha nem culpe moradores.
+7. Preserve proporção e área livre dos logos. Em espaços muito pequenos, use `simbolo.svg`.
+8. Para ícones funcionais sobre superfícies escuras, use os arquivos `icone-*-escuro.svg`; os arquivos sem sufixo são para fundos claros. Um SVG externo em `<img>` não herda `currentColor` do elemento pai.
+9. Use SVG para ícones e elementos gráficos; não use emoji como substituto. No app web, ícones utilitários usam Lucide React.
+10. No celular, empilhe ações com rótulos longos em larguras iguais. Pares curtos de navegação podem dividir a linha em duas colunas iguais. A ação secundária mantém menor peso visual.
 
 ## Animação de abertura
 

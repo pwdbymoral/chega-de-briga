@@ -1,13 +1,12 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { Link, NavLink, Route, Routes, useLocation } from "react-router";
-import { ArrowRight, Moon, RotateCcw, Sun } from "lucide-react";
+import { ArrowRight, Check, Moon, RotateCcw, Sun } from "lucide-react";
 import { useRegisterSW } from "virtual:pwa-register/react";
 import { tokens } from "@chega-de-briga/design-system/tokens.native";
 import {
   Avatar,
   Button,
   Card,
-  Checkbox,
   EmptyState,
   IconButton,
   Select,
@@ -15,6 +14,7 @@ import {
   TextField,
 } from "./components/ui";
 import { MobileMenu, type MobileMenuItem } from "./components/MobileMenu";
+import { BottomSheet, ConfirmDialog } from "./components/ResidentOverlays";
 import { ConsoleLoading } from "./components/ConsoleLoading";
 import { SplashScreen } from "./components/SplashScreen";
 import { useToast } from "./components/Toast";
@@ -178,6 +178,8 @@ function Home() {
 function Gallery() {
   const { showToast } = useToast();
   const [done, setDone] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [name, setName] = useState("");
   const [due, setDue] = useState("");
   const [assignee, setAssignee] = useState("a-combinar");
@@ -192,8 +194,8 @@ function Gallery() {
           Cada peça no <em>seu lugar.</em>
         </h1>
         <p>
-          Exemplos isolados, com estados reais de interação. Eles orientam as
-          telas que virão.
+          Exemplos interativos da biblioteca de interface. Consulte o guia de
+          componentes para escolher o padrão adequado a cada intenção.
         </p>
       </div>
       <div className={styles.galleryGrid}>
@@ -274,19 +276,22 @@ function Gallery() {
           <span className={styles.panelTag}>TAREFA / EXEMPLO</span>
           <h2>O essencial primeiro</h2>
           <div className={styles.taskRow}>
-            <Checkbox
-              label="Lavar a louça"
-              detail={done ? "Concluída · Júlia" : "Hoje, até 19h · Júlia"}
-              checked={done}
-              onChange={(event) => {
-                const checked = event.target.checked;
-                setDone(checked);
-                showToast(
-                  checked ? "Tarefa concluída" : "Tarefa reaberta",
-                  checked ? { action: { label: "Desfazer", onClick: () => setDone(false) } } : undefined,
-                );
-              }}
-            />
+            <span className={styles.taskContent}>
+              <strong>Lavar a louça</strong>
+              <small>{done ? "Júlia" : "Hoje, até 19h · Júlia"}</small>
+            </span>
+            {done ? (
+              <StatusBadge tone="success">Concluída</StatusBadge>
+            ) : (
+              <Button onClick={() => {
+                setDone(true);
+                showToast("Tarefa concluída", {
+                  action: { label: "Desfazer", onClick: () => setDone(false) },
+                });
+              }}>
+                <Check size={18} aria-hidden="true" /> Concluir
+              </Button>
+            )}
             <IconButton
               label="Recomeçar exemplo"
               icon={<RotateCcw aria-hidden="true" />}
@@ -297,7 +302,7 @@ function Gallery() {
             />
           </div>
           <p className={styles.note}>
-            Marque a tarefa para ver o feedback breve; Desfazer reabre a tarefa.
+            Conclua para ver o Toast; Desfazer restaura a tarefa. O ícone reinicia este exemplo.
           </p>
         </Card>
         <Card>
@@ -317,6 +322,20 @@ function Gallery() {
             <StatusBadge tone="warning">Vence hoje</StatusBadge>
             <StatusBadge tone="danger">Passou do prazo</StatusBadge>
           </div>
+        </Card>
+        <Card className={styles.actionCard}>
+          <span className={styles.panelTag}>ESCOLHAS / CONFIRMAÇÕES</span>
+          <h2>Decisões no contexto certo</h2>
+          <div className={styles.buttonRow}>
+            <Button variant="secondary" onClick={() => setSheetOpen(true)}>Escolher uma opção</Button>
+            <Button onClick={() => setConfirmOpen(true)}>Abrir confirmação</Button>
+          </div>
+          <p className={styles.note}>Escolha curta volta ao mesmo ponto; ação difícil de reverter explica o efeito antes de confirmar.</p>
+          <BottomSheet open={sheetOpen} onClose={() => setSheetOpen(false)} title="Trocar de casa">
+            <p>Selecione uma opção e continue no mesmo fluxo.</p>
+            <Button onClick={() => { setSheetOpen(false); showToast("Casa de exemplo selecionada."); }}>Casa de exemplo</Button>
+          </BottomSheet>
+          <ConfirmDialog open={confirmOpen} onClose={() => setConfirmOpen(false)} title="Remover este exemplo?" description="Esta ação serve apenas para demonstrar uma confirmação. Nenhum dado será apagado." confirmLabel="Confirmar remoção" onConfirm={() => showToast("Confirmação demonstrada.")} />
         </Card>
         <EmptyState
           title="Por aqui, tudo em ordem."
@@ -456,7 +475,7 @@ export function App() {
     "/criar-casa": "createHouse",
   };
   const authScreen = import.meta.env.DEV
-    ? authScreens[location.pathname]
+    ? authScreens[location.pathname] ?? (location.pathname.startsWith("/casa/") ? "home" : undefined)
     : undefined;
   const isStandalone = isAdmin || Boolean(authScreen);
   const authPage = (screen: AuthScreen) => (
@@ -532,6 +551,7 @@ export function App() {
               <Route path="/esqueci-senha" element={authPage("recovery")} />
               <Route path="/redefinir-senha" element={authPage("reset")} />
               <Route path="/casa" element={authPage("home")} />
+              <Route path="/casa/*" element={authPage("home")} />
               <Route path="/criar-casa" element={authPage("createHouse")} />
             </>
           )}

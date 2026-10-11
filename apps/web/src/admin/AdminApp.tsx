@@ -28,23 +28,24 @@ import {
 import {
   ArrowLeft,
   ArrowRight,
-  Ban,
   ChartNoAxesCombined,
   Download,
+  Ellipsis,
   House,
   KeyRound,
   LayoutDashboard,
   ListFilter,
   LogOut,
   MailPlus,
-  RotateCcw,
   Search,
   Settings2,
   UsersRound,
 } from "lucide-react";
-import { Avatar, Button, Card, EmptyState, Select, TextField } from "../components/ui";
+import { Avatar, Button, Card, EmptyState, Select, StatusBadge, TextField } from "../components/ui";
 import { MobileMenu, type MobileMenuItem } from "../components/MobileMenu";
 import { ConsoleLoading } from "../components/ConsoleLoading";
+import { ConfirmDialog } from "../components/ResidentOverlays";
+import { useToast } from "../components/Toast";
 import { demoGateway } from "./mockGateway";
 import type {
   ActivityEvent,
@@ -359,7 +360,6 @@ function Overview() {
 }
 
 function UsersPage() {
-  const location = useLocation();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<UserStatus | "todos">("todos");
   const [page, setPage] = useState(1);
@@ -374,9 +374,6 @@ function UsersPage() {
         title="Quem está por aqui."
         description="Busque por nome ou e-mail, confira o estado da conta e abra o histórico de metadados."
       />
-      {location.state?.notice && (
-        <Message tone="success">{location.state.notice}</Message>
-      )}
       <div className={styles.filters}>
         <label className={styles.searchField}>
           <Search size={19} aria-hidden="true" />
@@ -440,7 +437,9 @@ function UsersPage() {
                     <small>{user.email}</small>
                   </span>
                   <span className={styles.personMeta}>
-                    {statusName[user.status]}
+                    <StatusBadge tone={user.status === "ativo" ? "success" : "danger"}>
+                      {statusName[user.status]}
+                    </StatusBadge>
                     <small>{sourceName[user.source]}</small>
                   </span>
                   <ArrowRight size={19} aria-hidden="true" />
@@ -494,6 +493,7 @@ function UserEditor({
 }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const houses = useQuery({
     queryKey: ["houses"],
     queryFn: () => demoGateway.households(),
@@ -502,7 +502,6 @@ function UserEditor({
   const [email, setEmail] = useState(user.email);
   const [confirm, setConfirm] = useState<"suspenso" | "excluido" | null>(null);
   const [showManagement, setShowManagement] = useState(false);
-  const [notice, setNotice] = useState("");
   const timeline = [
     ...activity.map((item) => ({
       id: item.id,
@@ -530,14 +529,21 @@ function UserEditor({
     },
     onSuccess: async (_, action) => {
       if (action.kind === "status" && action.status === "excluido") {
-        navigate("/admin/usuarios", {
-          state: { notice: "Conta excluída na demonstração." },
-        });
         void queryClient.invalidateQueries();
+        showToast("Conta excluída na demonstração.");
+        navigate("/admin/usuarios");
         return;
       }
       await queryClient.invalidateQueries();
-      setNotice("Alteração salva na demonstração.");
+      showToast(
+        action.kind === "profile"
+          ? "Perfil atualizado na demonstração."
+          : action.kind === "role"
+            ? "Papel da casa atualizado na demonstração."
+            : action.status === "suspenso"
+              ? "Conta suspensa na demonstração."
+              : "Conta reativada na demonstração.",
+      );
       setConfirm(null);
     },
   });
@@ -566,7 +572,6 @@ function UserEditor({
           </Button>
         }
       />
-      {notice && <Message tone="success">{notice}</Message>}
       {mutation.isError && <QueryError error={mutation.error} />}
       {showManagement && (
         <div className={styles.twoColumns}>
@@ -596,7 +601,9 @@ function UserEditor({
           </Card>
           <Card>
             <span className={styles.eyebrow}>ESTADO</span>
-            <h2>{statusName[user.status]}</h2>
+            <StatusBadge tone={user.status === "ativo" ? "success" : "danger"}>
+              {statusName[user.status]}
+            </StatusBadge>
             <p>
               Suspender impede o acesso futuro quando houver backend. Nesta
               demo, a ação altera somente dados locais.
@@ -629,37 +636,6 @@ function UserEditor({
                 Excluir na demo
               </Button>
             </div>
-            {confirm && (
-              <div
-                className={styles.confirm}
-                role="group"
-                aria-label="Confirmar mudança de estado"
-              >
-                <strong>
-                  {confirm === "excluido"
-                    ? "Excluir esta conta na demo?"
-                    : "Suspender esta conta?"}
-                </strong>
-                <p>
-                  {confirm === "excluido"
-                    ? "A conta deixará a lista e seus dados de perfil serão anonimizados nesta sessão."
-                    : "A pessoa ficará marcada como suspensa nesta sessão."}
-                </p>
-                <div className={styles.actions}>
-                  <Button
-                    disabled={mutation.isPending}
-                    onClick={() =>
-                      mutation.mutate({ kind: "status", status: confirm })
-                    }
-                  >
-                    Confirmar
-                  </Button>
-                  <Button variant="quiet" onClick={() => setConfirm(null)}>
-                    Cancelar
-                  </Button>
-                </div>
-              </div>
-            )}
           </Card>
         </div>
       )}
@@ -735,6 +711,18 @@ function UserEditor({
           )}
         </Card>
       </div>
+      <ConfirmDialog
+        open={confirm !== null}
+        onClose={() => setConfirm(null)}
+        title={confirm === "excluido" ? "Excluir esta conta?" : "Suspender esta conta?"}
+        description={confirm === "excluido"
+          ? "A conta sairá da lista e os dados de perfil serão anonimizados nesta demonstração."
+          : "A conta ficará marcada como suspensa nesta demonstração."}
+        confirmLabel={confirm === "excluido" ? "Excluir conta" : "Suspender conta"}
+        onConfirm={() => {
+          if (confirm) mutation.mutate({ kind: "status", status: confirm });
+        }}
+      />
     </>
   );
 }
@@ -750,8 +738,41 @@ function UserDetail() {
   return <UserEditor key={id} {...query.data} />;
 }
 
+function AccessActions({ children }: { children: ReactNode }) {
+  return (
+    <details
+      className={styles.rowActions}
+      onToggle={(event) => {
+        if (event.currentTarget.open) {
+          event.currentTarget
+            .querySelector<HTMLElement>(".rowActionsMenu > :last-child")
+            ?.scrollIntoView({ block: "nearest" });
+        }
+      }}
+    >
+      <summary aria-label="Ações">
+        <Ellipsis size={18} aria-hidden="true" />
+        <span className={styles.rowActionsLabel}>Ações</span>
+      </summary>
+      <div
+        className={styles.rowActionsMenu}
+        onClick={(event) => {
+          if (event.target instanceof Element && event.target.closest("button")) {
+            const details = event.currentTarget.closest("details");
+            details?.removeAttribute("open");
+            details?.querySelector("summary")?.focus();
+          }
+        }}
+      >
+        {children}
+      </div>
+    </details>
+  );
+}
+
 function AccessPage() {
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
   const access = useQuery({
     queryKey: ["access"],
     queryFn: () => demoGateway.access(),
@@ -765,7 +786,11 @@ function AccessPage() {
   const [houseId, setHouseId] = useState("");
   const [composer, setComposer] = useState<"invite" | "allow" | null>(null);
   const [showHistory, setShowHistory] = useState(false);
-  const [notice, setNotice] = useState("");
+  const [confirmation, setConfirmation] = useState<{
+    kind: "revokeAllow" | "revokeInvite";
+    id: string;
+    email: string;
+  }>();
   const mutation = useMutation({
     mutationFn: async (
       action:
@@ -788,13 +813,13 @@ function AccessPage() {
     },
     onSuccess: async (_, action) => {
       await queryClient.invalidateQueries();
-      setNotice(
+      showToast(
         {
           allow: "E-mail liberado na demo.",
           invite: "Convite criado na demo. Nenhum e-mail foi enviado.",
           revokeAllow: "Autorização revogada na demo.",
           revokeInvite: "Convite revogado na demo.",
-          resend: "Convite reenviado na demo.",
+          resend: "Convite atualizado na demo. Nenhum e-mail foi enviado.",
         }[action.kind],
       );
       if (action.kind === "allow") setAllowedEmail("");
@@ -837,7 +862,6 @@ function AccessPage() {
           Liberar e-mail
         </Button>
       </div>
-      {notice && <Message tone="success">{notice}</Message>}
       {mutation.isError && <QueryError error={mutation.error} />}
       {houses.error && <QueryError error={houses.error} />}
       {composer && (
@@ -924,7 +948,7 @@ function AccessPage() {
                 )
                 .map((invite: Invitation) => (
                   <div
-                    className={`${styles.entry} ${styles.invitationEntry}`}
+                    className={`${styles.entry} ${styles.invitationEntry} ${invite.status === "pendente" ? styles.invitationWithActions : ""}`}
                     key={invite.id}
                   >
                     <div>
@@ -946,51 +970,53 @@ function AccessPage() {
                       </small>
                     </div>
                     <div className={styles.actions}>
-                      {invite.status === "pendente" && (
-                        <Link
-                          className={`${styles.entryAction} ${styles.demoEntry}`}
-                          to={`/criar-conta?convite=${encodeURIComponent(invite.id)}`}
-                          aria-label={`Testar cadastro de ${invite.email}`}
-                          data-tooltip="Testar cadastro"
-                        >
-                          <ArrowRight size={18} aria-hidden="true" />
-                          <span>Testar</span>
-                        </Link>
-                      )}
-                      {invite.status === "pendente" && (
-                        <Button
-                          variant="quiet"
-                          className={styles.entryAction}
-                          aria-label={`Revogar convite de ${invite.email}`}
-                          data-tooltip="Revogar convite"
-                          disabled={mutation.isPending}
-                          onClick={() =>
-                            mutation.mutate({
+                      {invite.status === "pendente" ? (
+                        <AccessActions>
+                          <Link
+                            className={`${styles.rowActionItem} ${styles.demoAction}`}
+                            to={`/criar-conta?convite=${encodeURIComponent(invite.id)}`}
+                            aria-label={`Testar cadastro de ${invite.email}`}
+                            data-tooltip="Testar cadastro"
+                          >
+                            Testar cadastro
+                          </Link>
+                          <Button
+                            variant="quiet"
+                            className={styles.rowActionItem}
+                            aria-label={`Reenviar convite para ${invite.email}`}
+                            disabled={mutation.isPending}
+                            onClick={() =>
+                              mutation.mutate({ kind: "resend", id: invite.id })
+                            }
+                          >
+                            Reenviar convite
+                          </Button>
+                          <Button
+                            variant="quiet"
+                            className={`${styles.rowActionItem} ${styles.destructiveAction}`}
+                            aria-label={`Revogar convite de ${invite.email}`}
+                            disabled={mutation.isPending}
+                            onClick={() => setConfirmation({
                               kind: "revokeInvite",
                               id: invite.id,
-                            })
-                          }
-                        >
-                          <Ban size={18} aria-hidden="true" />
-                          <span>Revogar</span>
-                        </Button>
-                      )}
-                      {(invite.status === "pendente" ||
-                        invite.status === "expirado") && (
+                              email: invite.email,
+                            })}
+                          >
+                            Revogar convite
+                          </Button>
+                        </AccessActions>
+                      ) : invite.status === "expirado" ? (
                         <Button
-                          variant="secondary"
-                          className={styles.entryAction}
+                          variant="quiet"
                           aria-label={`Reenviar convite para ${invite.email}`}
-                          data-tooltip="Reenviar convite"
                           disabled={mutation.isPending}
                           onClick={() =>
                             mutation.mutate({ kind: "resend", id: invite.id })
                           }
                         >
-                          <RotateCcw size={18} aria-hidden="true" />
-                          <span>Reenviar</span>
+                          Reenviar convite
                         </Button>
-                      )}
+                      ) : null}
                     </div>
                   </div>
                 ))}
@@ -1026,28 +1052,29 @@ function AccessPage() {
                     </div>
                     {!entry.revokedAt && (
                       <div className={styles.actions}>
-                        <Link
-                          className={`${styles.entryAction} ${styles.demoEntry}`}
-                          to={`/criar-conta?email=${encodeURIComponent(entry.email)}`}
-                          aria-label={`Testar cadastro de ${entry.email}`}
-                          data-tooltip="Testar cadastro"
-                        >
-                          <ArrowRight size={18} aria-hidden="true" />
-                          <span>Testar</span>
-                        </Link>
-                        <Button
-                          variant="quiet"
-                          className={styles.entryAction}
-                          aria-label={`Revogar autorização de ${entry.email}`}
-                          data-tooltip="Revogar autorização"
-                          disabled={mutation.isPending}
-                          onClick={() =>
-                            mutation.mutate({ kind: "revokeAllow", id: entry.id })
-                          }
-                        >
-                          <Ban size={18} aria-hidden="true" />
-                          <span>Revogar</span>
-                        </Button>
+                        <AccessActions>
+                          <Link
+                            className={`${styles.rowActionItem} ${styles.demoAction}`}
+                            to={`/criar-conta?email=${encodeURIComponent(entry.email)}`}
+                            aria-label={`Testar cadastro de ${entry.email}`}
+                            data-tooltip="Testar cadastro"
+                          >
+                            Testar cadastro
+                          </Link>
+                          <Button
+                            variant="quiet"
+                            className={`${styles.rowActionItem} ${styles.destructiveAction}`}
+                            aria-label={`Revogar autorização de ${entry.email}`}
+                            disabled={mutation.isPending}
+                            onClick={() => setConfirmation({
+                              kind: "revokeAllow",
+                              id: entry.id,
+                              email: entry.email,
+                            })}
+                          >
+                            Revogar autorização
+                          </Button>
+                        </AccessActions>
                       </div>
                     )}
                   </div>
@@ -1057,6 +1084,18 @@ function AccessPage() {
           </Card>
         </div>
       )}
+      <ConfirmDialog
+        open={Boolean(confirmation)}
+        onClose={() => setConfirmation(undefined)}
+        title={confirmation?.kind === "revokeInvite" ? "Revogar convite?" : "Revogar autorização?"}
+        description={confirmation?.kind === "revokeInvite"
+          ? `O convite de ${confirmation.email} será revogado. Isso não altera contas existentes.`
+          : `O e-mail ${confirmation?.email ?? ""} deixará de poder iniciar um cadastro pela lista de autorização. Contas existentes não serão alteradas.`}
+        confirmLabel={confirmation?.kind === "revokeInvite" ? "Revogar convite" : "Revogar autorização"}
+        onConfirm={() => {
+          if (confirmation) mutation.mutate({ kind: confirmation.kind, id: confirmation.id });
+        }}
+      />
     </>
   );
 }
@@ -1227,7 +1266,7 @@ function Funnel({
           </div>
         ))}
       </div>
-      <div className={styles.tableWrap}>
+      <div className={styles.tableWrap} role="region" aria-label="Etapas, contagens e denominadores" tabIndex={0}>
         <table>
           <caption>Etapas, contagens e denominadores</caption>
           <thead>
@@ -1446,7 +1485,7 @@ function AnalyticsContent({ data }: { data: Analytics }) {
               </BarChart>
             </ResponsiveContainer>
           </div>
-          <div className={styles.tableWrap}>
+          <div className={styles.tableWrap} role="region" aria-label="Casas ativas por semana" tabIndex={0}>
             <table>
               <caption>Casas ativas por semana</caption>
               <thead>
@@ -1477,7 +1516,7 @@ function AnalyticsContent({ data }: { data: Analytics }) {
             coorte sem tempo suficiente. Atividade é criação ou conclusão de
             tarefa.
           </p>
-          <div className={styles.tableWrap}>
+          <div className={styles.tableWrap} role="region" aria-label="Retenção de casas por coorte" tabIndex={0}>
             <table>
               <caption>Retenção de casas por coorte</caption>
               <thead>
@@ -1597,7 +1636,7 @@ function AdminInner({ themeControl }: { themeControl: ReactNode }) {
     <section className={styles.console}>
       <div className={styles.demoBanner} role="status">
         <span>DEMONSTRAÇÃO · DADOS FICTÍCIOS</span>
-        <span>Alterações só nesta aba. Nenhum e-mail é enviado.</span>
+        <span>Alterações se perdem ao atualizar ou fechar a aba. Nenhum e-mail é enviado.</span>
       </div>
       <div className={styles.shell}>
         <aside className={styles.sidebar}>

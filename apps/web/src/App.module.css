@@ -357,6 +357,9 @@
   border-radius: var(--radius-control);
   background: var(--color-surface);
 }
+.taskContent { display: grid; flex: 1; gap: 0.2rem; min-width: 0; }
+.taskContent strong, .taskContent small { display: block; }
+.taskContent small { color: var(--color-text-muted); font-size: var(--type-sm); }
 .avatarRow {
   display: flex;
   gap: 0.3rem;
@@ -610,6 +613,9 @@
   .buttonRow > button {
     width: 100%;
   }
+  .taskCard .taskRow { display: grid; grid-template-columns: minmax(0, 1fr) 48px; }
+  .taskCard .taskContent { grid-column: 1 / -1; }
+  .taskCard .taskRow > button:not([aria-label]) { width: 100%; }
   .access {
     width: min(100% - 1rem, 1200px);
     min-height: 0;

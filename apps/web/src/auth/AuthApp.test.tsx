@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router";
 import { describe, expect, it } from "vitest";
 import { AuthApp } from "./AuthApp";
+import { ToastProvider } from "../components/Toast";
 import { createDemoAuthGateway, createDemoData, createDemoGateway } from "../admin/mockGateway";
 import type { AuthGateway } from "../admin/contracts";
 
@@ -16,7 +17,8 @@ function RoutedAuth({ gateway }: { gateway: AuthGateway }) {
     "/casa": "home",
     "/criar-casa": "createHouse",
   };
-  return <AuthApp screen={screenByPath[location.pathname] ?? "signup"} themeControl={null} gateway={gateway} />;
+  const screen = screenByPath[location.pathname] ?? (location.pathname.startsWith("/casa/") ? "home" : "signup");
+  return <AuthApp screen={screen} themeControl={null} gateway={gateway} />;
 }
 
 describe("telas de autenticação", () => {
@@ -28,9 +30,11 @@ describe("telas de autenticação", () => {
     const user = userEvent.setup();
 
     render(
-      <MemoryRouter initialEntries={["/criar-conta?email=ana%40example.test"]}>
-        <RoutedAuth gateway={gateway} />
-      </MemoryRouter>,
+      <ToastProvider>
+        <MemoryRouter initialEntries={["/criar-conta?email=ana%40example.test"]}>
+          <RoutedAuth gateway={gateway} />
+        </MemoryRouter>
+      </ToastProvider>,
     );
 
     await screen.findByRole("heading", { name: "Criar conta" });
@@ -44,10 +48,12 @@ describe("telas de autenticação", () => {
     await user.type(houseName, "Apê da Ana");
     expect(houseName).toHaveValue("Apê da Ana");
     await user.click(screen.getByRole("button", { name: /criar casa/i }));
-    await screen.findByRole("heading", { name: "Oi, Ana." });
-    await screen.findByText("Apê da Ana");
+    await screen.findByRole("heading", { name: "Início" });
+    await screen.findByRole("button", { name: "Apê da Ana" });
 
-    await user.click(screen.getByRole("button", { name: /sair/i }));
+    await user.click(screen.getByRole("link", { name: "Abrir perfil" }));
+    await screen.findByRole("heading", { name: "Perfil" });
+    await user.click(screen.getByRole("button", { name: /sair da conta/i }));
     await screen.findByRole("heading", { name: "Entrar" });
     expect(await gateway.session()).toBeNull();
   });

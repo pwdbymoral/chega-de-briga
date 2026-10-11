@@ -7,10 +7,11 @@ import {
   type ReactNode,
 } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router";
-import { ArrowRight, Eye, EyeOff, House, LogOut, ShieldCheck } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, House, ShieldCheck } from "lucide-react";
 import { Button, Card, TextField } from "../components/ui";
 import { demoAuthGateway } from "../admin/mockGateway";
 import type { AuthGateway, AuthSession, InvitationPreview } from "../admin/contracts";
+import { ResidentApp } from "../resident/ResidentApp";
 import styles from "./AuthApp.module.css";
 
 type Screen = "login" | "signup" | "recovery" | "reset" | "home" | "createHouse";
@@ -64,7 +65,7 @@ function AuthFlow({ screen, themeControl }: { screen: Screen; themeControl: Reac
     if (!session) return <Navigate to="/entrar" replace />;
     if (!session.memberships.length && session.canCreateHouse)
       return <Navigate to="/criar-casa" replace />;
-    return shell(<ResidentHome session={session} onSession={updateSession} />);
+    return <ResidentHome session={session} onSession={updateSession} themeControl={themeControl} />;
   }
   if (screen === "createHouse") {
     if (loading) return shell(<Loading />);
@@ -548,9 +549,11 @@ function CreateHouse({
 function ResidentHome({
   session,
   onSession,
+  themeControl,
 }: {
   session: AuthSession;
   onSession: (session: AuthSession | null) => void;
+  themeControl: ReactNode;
 }) {
   const gateway = useAuthGateway();
   const navigate = useNavigate();
@@ -561,31 +564,7 @@ function ResidentHome({
     onSession(null);
     navigate("/entrar");
   }
-  return (
-    <Card className={styles.formCard}>
-      <span className={styles.eyebrow}>ÁREA DA CASA · DEMONSTRAÇÃO</span>
-      <h1>Oi, {session.user.name}.</h1>
-      <p className={styles.lead}>Sua entrada deu certo. Os combinados da casa chegam na próxima etapa.</p>
-      {session.memberships.map((membership) => (
-        <div className={styles.house} key={membership.householdId}>
-          <House size={20} aria-hidden="true" />
-          <span>{membership.householdName}</span>
-        </div>
-      ))}
-      {session.canCreateHouse && session.memberships.length > 0 && (
-        <Button variant="secondary" onClick={() => navigate("/criar-casa")}>
-          Criar outra casa
-        </Button>
-      )}
-      <div className={styles.homeActions}>
-        <Link to="/" className={styles.backLink}>Voltar ao início</Link>
-        <Button variant="quiet" onClick={() => void logout()} disabled={busy}>
-          <LogOut size={17} aria-hidden="true" /> Sair
-        </Button>
-      </div>
-      <DemoNote />
-    </Card>
-  );
+  return <ResidentApp session={session} onSession={onSession} themeControl={themeControl} onLogout={() => { if (!busy) void logout(); }} />;
 }
 
 function PasswordField({

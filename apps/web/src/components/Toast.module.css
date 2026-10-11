@@ -9,6 +9,10 @@
   pointer-events: none;
 }
 
+:global(body[data-resident-app="true"]) .viewport {
+  bottom: calc(5.25rem + env(safe-area-inset-bottom));
+}
+
 .toast {
   display: flex;
   align-items: center;

@@ -258,7 +258,7 @@ Exclusão de conta exige política de dados e fluxo próprio; não é uma ação
 
 ## Próximo passo
 
-As decisões de produto necessárias para desenhar os fluxos da v1 estão fechadas. O toast acessível com ação opcional de desfazer já está implementado e demonstrado em `/componentes`. O próximo passo é conferir a cobertura dos fluxos, comparar as necessidades aprovadas com os componentes existentes e construir/documentar somente as peças ainda ausentes; depois, implementar as telas residenciais. Expiração de convites, exclusão/retensão de conta e contrato de sincronização continuam para a etapa do backend.
+As decisões de produto necessárias para desenhar os fluxos da v1 estão fechadas. O inventário comparou esses fluxos com os componentes existentes; Toast já cobre feedback reversível. `BottomSheet` e `ConfirmDialog` foram adicionados para escolhas curtas e confirmações importantes. O shell residencial e telas navegáveis começaram como demonstração local, sem conexão com o backend. Expiração de convites, exclusão/retensão de conta e contrato de sincronização continuam para a etapa do backend.
 
 Push exige integração de backend e permissão do aparelho; a modelagem define o comportamento, mas o código atual não envia notificações. No iOS/iPadOS, Web Push está disponível para web apps adicionados à Tela de Início desde a versão 16.4 e exige ação direta para solicitar permissão. A sincronização offline também depende de contrato/backend residencial ainda inexistente.
 
