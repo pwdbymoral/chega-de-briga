@@ -408,7 +408,8 @@ app.get("/api/admin/bootstrap/status", async (_request, reply) => {
 app.post("/api/admin/bootstrap/request", { config: { rateLimit: { max: 3, timeWindow: "1 hour" } } }, async (_request, reply) => {
   const email = process.env.BOOTSTRAP_ADMIN_EMAIL;
   const count = await pool.query<{ count: string }>("SELECT count(*) FROM platform_admins");
-  if (!email || Number(count.rows[0]?.count) > 0) return reply.code(202).send({ ok: true });
+  if (!email) return bad(reply, 503, "unavailable", "O primeiro acesso administrativo não está configurado neste servidor.");
+  if (Number(count.rows[0]?.count) > 0) return bad(reply, 409, "invalid_state", "A configuração inicial já foi concluída. Volte à tela de entrada e use a conta administrativa.");
   const secret = createTotpSecret();
   const raw = token();
   const link = `${appOrigin}/admin/setup#token=${encodeURIComponent(raw)}`;
@@ -421,7 +422,7 @@ app.post("/api/admin/bootstrap/request", { config: { rateLimit: { max: 3, timeWi
     );
     await sendToken(email, "Configuração do Chega de Briga", link, "em 30 minutos", client);
   });
-  return reply.code(202).send({ ok: true });
+  return reply.code(202).send({ status: "queued" });
 });
 
 app.post("/api/admin/bootstrap/challenge", async (request, reply) => {

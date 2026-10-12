@@ -11,7 +11,7 @@ export const httpAdminGateway: AdminGateway = {
   },
   async logout() { await api("/api/admin/session", json("DELETE")); },
   async bootstrapStatus() { return (await api<{ enabled: boolean }>("/api/admin/bootstrap/status")).enabled; },
-  async requestBootstrap() { await api("/api/admin/bootstrap/request", json("POST", {})); },
+  async requestBootstrap() { return api<{ status: "queued" }>("/api/admin/bootstrap/request", json("POST", {})); },
   bootstrapChallenge(token) { return api("/api/admin/bootstrap/challenge", json("POST", { token })); },
   async completeBootstrap(input) { return (await api<{ recoveryCodes: string[] }>("/api/admin/bootstrap/complete", json("POST", input))).recoveryCodes; },
   users(query: UserQuery): Promise<UserPage> {

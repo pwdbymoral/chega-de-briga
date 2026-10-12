@@ -309,7 +309,7 @@ function BootstrapAdmin({ themeControl }: { themeControl: ReactNode }) {
           {!token ? (
             <>
               <p>Enviaremos um link de configuração ao e-mail definido nos segredos do servidor.</p>
-              {sent ? <Message tone="success">Se a configuração inicial estiver ativa, o link foi enviado.</Message> : <Button disabled={send.isPending} onClick={() => send.mutate()}>{send.isPending ? "Enviando…" : "Enviar link de configuração"}</Button>}
+              {sent ? <Message tone="success">Pedido confirmado. O e-mail com o link entrou na fila de envio para o endereço administrativo. Confira sua caixa de entrada e a pasta de spam nos próximos minutos.</Message> : <Button disabled={send.isPending} onClick={() => send.mutate()}>{send.isPending ? "Enviando…" : "Enviar link de configuração"}</Button>}
               {send.isError && <QueryError error={send.error} />}
             </>
           ) : recoveryCodes ? (

@@ -132,7 +132,7 @@ export interface AdminGateway {
   session(): Promise<boolean>;
   logout(): Promise<void>;
   bootstrapStatus?(): Promise<boolean>;
-  requestBootstrap?(): Promise<void>;
+  requestBootstrap?(): Promise<{ status: "queued" }>;
   bootstrapChallenge?(token: string): Promise<{ email: string; totpSecret: string; totpUri: string }>;
   completeBootstrap?(input: { token: string; password: string; totp: string }): Promise<string[]>;
   users(query: UserQuery): Promise<UserPage>;
