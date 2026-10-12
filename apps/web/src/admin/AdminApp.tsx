@@ -41,7 +41,7 @@ import {
   Settings2,
   UsersRound,
 } from "lucide-react";
-import { Avatar, Button, Card, EmptyState, Select, StatusBadge, TextField } from "../components/ui";
+import { Avatar, Button, Card, EmptyState, LinkButton, Select, StatusBadge, TextField } from "../components/ui";
 import { MobileMenu, type MobileMenuItem } from "../components/MobileMenu";
 import { ConsoleLoading } from "../components/ConsoleLoading";
 import { ConfirmDialog } from "../components/ResidentOverlays";
@@ -382,9 +382,9 @@ function Overview() {
         title="A casa toda, de relance."
         description="Sinais de uso para encontrar atritos cedo. Cada número abre uma pergunta, não um julgamento."
         action={
-          <Link className={styles.linkButton} to="/admin/analise">
+          <LinkButton to="/admin/analise">
             Explorar análise <ArrowRight size={18} aria-hidden="true" />
-          </Link>
+          </LinkButton>
         }
       />
       <div className={styles.stats}>

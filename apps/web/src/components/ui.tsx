@@ -1,5 +1,6 @@
 import type { ButtonHTMLAttributes, HTMLAttributes, InputHTMLAttributes, ReactNode, Ref } from "react";
 import { useId } from "react";
+import { Link, type LinkProps } from "react-router";
 import { CircleAlert, CircleCheck, Clock3 } from "lucide-react";
 import styles from "./ui.module.css";
 export { Select } from "./Select";
@@ -12,6 +13,10 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 
 export function Button({ variant = "primary", className = "", type = "button", ...props }: ButtonProps) {
   return <button {...props} type={type} className={`${styles.button} ${styles[variant]} ${className}`} />;
+}
+
+export function LinkButton({ className = "", ...props }: LinkProps) {
+  return <Link {...props} className={`${styles.button} ${styles.primary} ${styles.linkButton} ${className}`} />;
 }
 
 type IconButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "aria-label"> & {

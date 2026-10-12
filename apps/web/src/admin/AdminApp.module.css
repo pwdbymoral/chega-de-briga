@@ -243,20 +243,6 @@
   font-weight: 800;
   text-underline-offset: 0.25rem;
 }
-.linkButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  min-height: 48px;
-  padding: 0.7rem 1rem;
-  border: 2px solid var(--color-text);
-  border-radius: var(--radius-pill);
-  background: var(--color-primary);
-  color: var(--color-on-primary);
-  font-weight: 800;
-  text-decoration: none;
-}
 .message {
   margin: 1rem 0;
   padding: 0.85rem 1rem;
