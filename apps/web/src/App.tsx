@@ -94,31 +94,21 @@ function useTheme() {
 
 function PwaStatus() {
   const {
-    offlineReady: [offlineReady, setOfflineReady],
     needRefresh: [needRefresh, setNeedRefresh],
     updateServiceWorker,
   } = useRegisterSW();
-  if (!needRefresh && !offlineReady) return null;
+
+  if (!needRefresh) return null;
 
   return (
     <div className={styles.pwaStatus} role="status">
-      <p>
-        {needRefresh
-          ? "Nova versão pronta para usar."
-          : "Pronto para abrir sem conexão."}
-      </p>
-      {needRefresh && (
-        <Button onClick={() => void updateServiceWorker(true)}>
-          Atualizar
-        </Button>
-      )}
+      <p>Nova versão pronta para usar.</p>
+      <Button onClick={() => void updateServiceWorker(true)}>Atualizar</Button>
       <Button
         variant="quiet"
-        onClick={() =>
-          needRefresh ? setNeedRefresh(false) : setOfflineReady(false)
-        }
+        onClick={() => setNeedRefresh(false)}
       >
-        {needRefresh ? "Depois" : "Entendi"}
+        Depois
       </Button>
     </div>
   );
