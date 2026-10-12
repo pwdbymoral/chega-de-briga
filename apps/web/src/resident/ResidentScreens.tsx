@@ -33,6 +33,7 @@ import {
 } from "../components/ui";
 import { BottomSheet } from "../components/ResidentOverlays";
 import { useToast } from "../components/Toast";
+import { errorMessage } from "../api/http";
 import {
   addDays,
   dateKey,
@@ -567,20 +568,20 @@ export function ProfileScreen({
         showToast("Lembretes desativados.");
         return;
       }
-      if (!("Notification" in window) || !("serviceWorker" in navigator)) throw new Error("Este navegador não oferece notificações para a PWA.");
+      if (!("Notification" in window) || !("serviceWorker" in navigator)) throw new Error("Este navegador não oferece notificações. Abra o app em um navegador compatível para ativar os lembretes.");
       const permission = await Notification.requestPermission();
       if (permission !== "granted") throw new Error("Permita notificações no navegador para ativar os lembretes.");
       const key = await gateway.vapidPublicKey();
       const registration = await navigator.serviceWorker.ready;
       const subscription = await registration.pushManager.getSubscription() ?? await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: decodeVapidKey(key) });
       const value = subscription.toJSON();
-      if (!value.endpoint || !value.keys?.p256dh || !value.keys.auth) throw new Error("Não foi possível registrar este aparelho para notificações.");
+      if (!value.endpoint || !value.keys?.p256dh || !value.keys.auth) throw new Error("Não foi possível registrar este aparelho. Confira a permissão de notificações do navegador e tente novamente.");
       await gateway.savePushSubscription({ endpoint: value.endpoint, keys: { p256dh: value.keys.p256dh, auth: value.keys.auth } });
       await gateway.saveReminder(true, reminderTime);
       setReminderEnabled(true);
       showToast("Lembretes diários ativados.");
     } catch (error) {
-      showToast(error instanceof Error ? error.message : "Não foi possível atualizar as notificações.");
+      showToast(errorMessage(error, "Não foi possível atualizar as notificações. Confira a permissão do navegador e tente novamente."));
     } finally {
       setSavingReminder(false);
     }
@@ -591,7 +592,7 @@ export function ProfileScreen({
       await gateway.saveReminder(reminderEnabled, reminderTime);
       showToast("Horário do lembrete atualizado.");
     } catch (error) {
-      showToast(error instanceof Error ? error.message : "Não foi possível salvar o horário.");
+      showToast(errorMessage(error, "Não foi possível salvar o horário. Confira sua conexão e tente novamente."));
     } finally {
       setSavingReminder(false);
     }
@@ -606,7 +607,7 @@ export function ProfileScreen({
       link.click();
       URL.revokeObjectURL(url);
     } catch (error) {
-      showToast(error instanceof Error ? error.message : "Não foi possível exportar os dados.");
+      showToast(errorMessage(error, "Não foi possível exportar os dados. Tente novamente; se continuar, fale com o suporte."));
     }
   }
   return (
@@ -645,7 +646,7 @@ export function DeleteAccountScreen({ onDelete, onCancel }: { onDelete: () => Pr
     event.preventDefault();
     setBusy(true);
     setError("");
-    try { await onDelete(); } catch (reason) { setError(reason instanceof Error ? reason.message : "Não foi possível excluir a conta."); } finally { setBusy(false); }
+    try { await onDelete(); } catch (reason) { setError(errorMessage(reason, "Não foi possível excluir a conta. Transfira a responsabilidade da casa, se aplicável, e tente novamente.")); } finally { setBusy(false); }
   }
   return <div className={styles.screenStack}><Card className={styles.houseCard}><span className={styles.eyebrow}>AÇÃO PERMANENTE</span><h1>Excluir sua conta?</h1><p>Seu perfil será anonimizado. O histórico compartilhado continuará sem identificar você. Se esta for a única pessoa da casa, a casa e seus dados serão apagados. Se você for o último responsável de uma casa com outras pessoas, transfira a responsabilidade antes.</p><form className={styles.formStack} onSubmit={submit}><TextField id="delete-account-confirm" label="Digite EXCLUIR para confirmar" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} required /><div className={styles.preferenceActions}><Button type="button" variant="secondary" onClick={onCancel}>Cancelar</Button><Button type="submit" disabled={busy || confirmation !== "EXCLUIR"}>{busy ? "Excluindo…" : "Excluir conta"}</Button></div>{error && <p role="alert">{error}</p>}</form></Card></div>;
 }

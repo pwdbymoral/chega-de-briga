@@ -46,6 +46,7 @@ import { MobileMenu, type MobileMenuItem } from "../components/MobileMenu";
 import { ConsoleLoading } from "../components/ConsoleLoading";
 import { ConfirmDialog } from "../components/ResidentOverlays";
 import { useToast } from "../components/Toast";
+import { errorMessage } from "../api/http";
 import type {
   AdminGateway,
   ActivityEvent,
@@ -85,7 +86,7 @@ const dateTime = (value: string) =>
     timeStyle: "short",
   });
 const errorText = (error: unknown) =>
-  error instanceof Error ? error.message : "Algo deu errado. Tente de novo.";
+  errorMessage(error, "Algo deu errado. Recarregue a tela e tente novamente.");
 const sourceName: Record<SourceFilter, string> = {
   todos: "Todas as origens",
   lista: "Lista de autorização",
@@ -283,14 +284,14 @@ function BootstrapAdmin({ themeControl }: { themeControl: ReactNode }) {
   });
   const send = useMutation({
     mutationFn: async () => {
-      if (!gateway.requestBootstrap) throw new Error("Configuração inicial indisponível.");
+      if (!gateway.requestBootstrap) throw new Error("A configuração inicial não está disponível neste ambiente. Volte à entrada ou procure o administrador.");
       await gateway.requestBootstrap();
     },
     onSuccess: () => setSent(true),
   });
   const complete = useMutation({
     mutationFn: async () => {
-      if (!gateway.completeBootstrap) throw new Error("Configuração inicial indisponível.");
+      if (!gateway.completeBootstrap) throw new Error("A configuração inicial não está disponível neste ambiente. Volte à entrada ou procure o administrador.");
       return gateway.completeBootstrap({ token, password, totp });
     },
     onSuccess: setRecoveryCodes,
@@ -318,7 +319,7 @@ function BootstrapAdmin({ themeControl }: { themeControl: ReactNode }) {
               <pre className={styles.recoveryCodes}>{recoveryCodes.join("\n")}</pre>
               <Button onClick={() => navigate("/admin/entrar", { replace: true })}>Guardei os códigos e vou entrar</Button>
             </div>
-          ) : challenge.isPending ? <Loading /> : challenge.error || !challenge.data ? <QueryError error={challenge.error ?? new Error("Link inválido ou expirado.")} /> : (
+          ) : challenge.isPending ? <Loading /> : challenge.error || !challenge.data ? <QueryError error={challenge.error ?? new Error("Este link expirou ou já foi usado. Solicite um novo link e tente novamente.")} /> : (
             <form className={styles.stack} onSubmit={submit}>
               <p>Conta inicial: <strong>{challenge.data.email}</strong></p>
               <p>Cadastre este segredo no aplicativo autenticador antes de continuar:</p>

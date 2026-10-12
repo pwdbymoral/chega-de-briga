@@ -3,7 +3,7 @@ import { ArrowLeft, Check, ChevronDown, House, ListChecks, Plus, ShoppingBasket 
 import { Link, NavLink, useLocation, useNavigate } from "react-router";
 import type { AuthSession } from "../admin/contracts";
 import type { ResidentGateway, TaskSyncEvent } from "../admin/contracts";
-import { ApiError } from "../api/http";
+import { ApiError, errorMessage } from "../api/http";
 import { Avatar, Button, Checkbox, EmptyState, TextField } from "../components/ui";
 import { BottomSheet, ConfirmDialog } from "../components/ResidentOverlays";
 import { useToast } from "../components/Toast";
@@ -122,7 +122,7 @@ export function ResidentApp({
   const cacheHouse = useCallback((id: string, value: CachedHouse) => {
     cacheRef.current[id] = value;
     setPendingHouses((current) => ({ ...current, [id]: value.pending }));
-    void writeCachedHouse(id, value).catch(() => showToast("Não foi possível guardar a cópia local desta casa."));
+    void writeCachedHouse(id, value).catch(() => showToast("Não foi possível guardar os dados desta casa neste aparelho. Libere espaço de armazenamento e atualize a tela."));
   }, [showToast]);
 
   const syncCachedHouse = useCallback(async (id: string) => {
@@ -169,7 +169,7 @@ export function ResidentApp({
           }
         }
         cacheHouse(id, { ...cached, pending: true });
-        if (navigator.onLine) showToast(error instanceof Error ? error.message : "Há alterações aguardando sincronização.");
+        if (navigator.onLine) showToast(errorMessage(error, "Há alterações aguardando sincronização. Confira sua conexão e tente novamente."));
       }
     } finally {
       delete syncingRef.current[id];
@@ -207,7 +207,7 @@ export function ResidentApp({
       } catch (error) {
         if (!current) return;
         setLoadedHouses((value) => ({ ...value, [activeHouseId]: true }));
-        showToast(error instanceof Error ? error.message : "Não foi possível abrir os dados da casa.");
+        showToast(errorMessage(error, "Não foi possível abrir os dados da casa. Confira sua conexão e tente novamente."));
       }
     })();
     return () => { current = false; };
@@ -491,7 +491,7 @@ export function ResidentApp({
   function inviteResident(email: string) {
     if (!email.trim()) return;
     void gateway.inviteResident(householdId, email).then(() => reloadHousehold()).then(() => showToast("Convite enviado por e-mail."))
-      .catch((error: unknown) => showToast(error instanceof Error ? error.message : "Não foi possível enviar o convite."));
+      .catch((error: unknown) => showToast(errorMessage(error, "Não foi possível enviar o convite. Confira o e-mail e tente novamente.")));
   }
 
   function revokeInvite(id: string) {
@@ -503,7 +503,7 @@ export function ResidentApp({
       confirmLabel: "Revogar convite",
       onConfirm: () => {
         void gateway.revokeInvitation(householdId, id).then(() => reloadHousehold()).then(() => showToast("Convite revogado."))
-          .catch((error: unknown) => showToast(error instanceof Error ? error.message : "Não foi possível revogar o convite."));
+          .catch((error: unknown) => showToast(errorMessage(error, "Não foi possível revogar o convite. Atualize a tela e tente novamente.")));
       },
     });
   }
@@ -517,7 +517,7 @@ export function ResidentApp({
       confirmLabel: "Remover morador",
       onConfirm: () => {
         void gateway.removeMember(householdId, id).then(() => reloadHousehold()).then(() => showToast("Morador removido da casa."))
-          .catch((error: unknown) => showToast(error instanceof Error ? error.message : "Não foi possível remover o morador."));
+          .catch((error: unknown) => showToast(errorMessage(error, "Não foi possível remover o morador. Atualize a tela e tente novamente.")));
       },
     });
   }
@@ -529,7 +529,7 @@ export function ResidentApp({
       onSession(nextSession);
       return reloadHousehold();
     }).then(() => showToast(`${next.name} agora é responsável.`))
-      .catch((error: unknown) => showToast(error instanceof Error ? error.message : "Não foi possível transferir a responsabilidade."));
+      .catch((error: unknown) => showToast(errorMessage(error, "Não foi possível transferir a responsabilidade. Confira os dados e tente novamente.")));
   }
 
   function openTaskEditor() {
@@ -567,7 +567,7 @@ export function ResidentApp({
           if (remove) setDataByHouse((current) => Object.fromEntries(Object.entries(current).filter(([id]) => id !== householdId)));
           if (nextSession.memberships.length) navigate("/casa");
           else navigate(nextSession.canCreateHouse ? "/criar-casa" : "/entrar");
-        }).catch((error: unknown) => showToast(error instanceof Error ? error.message : "Não foi possível concluir a ação."));
+        }).catch((error: unknown) => showToast(errorMessage(error, "Não foi possível concluir a ação. Atualize a tela e tente novamente.")));
       },
     });
   }
@@ -639,7 +639,7 @@ export function ResidentApp({
           />
         ) : route === "/casa/perfil" ? (
           <ProfileScreen session={session} gateway={gateway} onSave={(name) => {
-            void gateway.updateProfileName(name).then(() => onSession({ ...session, user: { ...session.user, name } })).catch((error: unknown) => showToast(error instanceof Error ? error.message : "Não foi possível atualizar o perfil."));
+            void gateway.updateProfileName(name).then(() => onSession({ ...session, user: { ...session.user, name } })).catch((error: unknown) => showToast(errorMessage(error, "Não foi possível atualizar o perfil. Revise o nome e tente novamente.")));
           }} onLogout={requestLogout} />
         ) : route === "/casa/perfil/excluir" ? (
           <DeleteAccountScreen onCancel={() => navigate("/casa/perfil")} onDelete={async () => {
@@ -659,7 +659,7 @@ export function ResidentApp({
               void gateway.renameHousehold(householdId, next).then(() => {
                 setHouseNames((current) => ({ ...current, [householdId]: next }));
                 showToast("Nome da casa atualizado.");
-              }).catch((error: unknown) => showToast(error instanceof Error ? error.message : "Não foi possível atualizar a casa."));
+              }).catch((error: unknown) => showToast(errorMessage(error, "Não foi possível atualizar a casa. Revise os dados e tente novamente.")));
             }}
             onMembers={() => navigate("/casa/moradores")}
             onLeave={() => leaveHouse(false)}

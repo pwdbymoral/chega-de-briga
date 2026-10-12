@@ -11,6 +11,7 @@ import { Link, Navigate, useLocation, useNavigate } from "react-router";
 import { ArrowRight, Eye, EyeOff, House, ShieldCheck } from "lucide-react";
 import { Button, Card, TextField } from "../components/ui";
 import { useToast } from "../components/Toast";
+import { errorMessage } from "../api/http";
 import type { AuthGateway, AuthSession, InvitationPreview } from "../admin/contracts";
 import { ResidentApp } from "../resident/ResidentApp";
 import { clearCachedHouses, readCachedSession, writeCachedSession } from "../resident/localCache";
@@ -57,7 +58,7 @@ function AuthFlow({ screen, themeControl }: { screen: AuthScreen; themeControl: 
         if (cached) setSession(cached);
         else {
           setSession(null);
-          showToast(error instanceof Error ? error.message : "Não foi possível verificar sua sessão.");
+          showToast(errorMessage(error, "Não foi possível verificar sua sessão. Confira sua conexão e tente novamente."));
         }
       }).catch(() => { if (current) setSession(null); });
     }).finally(() => current && setLoading(false));
@@ -68,14 +69,14 @@ function AuthFlow({ screen, themeControl }: { screen: AuthScreen; themeControl: 
 
   useEffect(() => {
     if (session === undefined) return;
-    if (session) void writeCachedSession(session).catch(() => showToast("Não foi possível guardar a sessão para uso offline."));
-    else if (navigator.onLine) void clearCachedHouses().catch(() => showToast("Não foi possível limpar os dados locais da sessão."));
+    if (session) void writeCachedSession(session).catch(() => showToast("Não foi possível guardar a sessão neste aparelho. Confira o espaço disponível e tente novamente."));
+    else if (navigator.onLine) void clearCachedHouses().catch(() => showToast("Não foi possível limpar a cópia local da sessão. Feche o app após sair e tente novamente."));
   }, [session, showToast]);
 
   useEffect(() => {
     const refreshSession = () => {
       void gateway.session().then((value) => setSession(value)).catch((error: unknown) => {
-        showToast(error instanceof Error ? error.message : "Não foi possível atualizar sua sessão.");
+        showToast(errorMessage(error, "Não foi possível atualizar sua sessão. Confira sua conexão e tente novamente."));
       });
     };
     window.addEventListener("online", refreshSession);
@@ -186,7 +187,7 @@ function Login({ onSession }: { onSession: (session: AuthSession) => void }) {
           : "/criar-casa",
       );
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Não foi possível entrar.");
+      setError(errorMessage(reason, "Não foi possível entrar. Confira seus dados de acesso e tente novamente."));
     } finally {
       setBusy(false);
     }
@@ -277,7 +278,7 @@ function Signup({ onSession }: { onSession: (session: AuthSession) => void }) {
       .catch((reason: unknown) => {
         if (!current) return;
         setInvitationError(
-          reason instanceof Error ? reason.message : "Não foi possível abrir o convite.",
+          errorMessage(reason, "Não foi possível abrir este convite. Confira o link ou peça um novo acesso."),
         );
       })
       .finally(() => current && setInvitationLoading(false));
@@ -290,7 +291,7 @@ function Signup({ onSession }: { onSession: (session: AuthSession) => void }) {
     event.preventDefault();
     setError("");
     if (invitationId && (!invitation || invitation.status !== "pendente")) {
-      setError(invitationError || "Este convite não está mais válido.");
+      setError(invitationError || "Este convite não está mais válido. Peça a quem enviou para gerar um novo.");
       return;
     }
     if (password !== confirmPassword) {
@@ -316,7 +317,7 @@ function Signup({ onSession }: { onSession: (session: AuthSession) => void }) {
           : "/criar-casa",
       );
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Não foi possível criar a conta.");
+      setError(errorMessage(reason, "Não foi possível criar sua conta. Revise os dados informados e tente novamente."));
     } finally {
       setBusy(false);
     }
@@ -418,7 +419,7 @@ function Recovery() {
       setResetLink(await gateway.requestPasswordReset(email));
       setSent(true);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Não foi possível pedir a recuperação.");
+      setError(errorMessage(reason, "Não foi possível pedir a recuperação. Confira o e-mail informado e tente novamente."));
     } finally {
       setBusy(false);
     }
@@ -496,7 +497,7 @@ function ResetPassword() {
       await gateway.resetPassword(token, password);
       setComplete(true);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Não foi possível trocar a senha.");
+      setError(errorMessage(reason, "Não foi possível trocar a senha. Confira os dados e solicite um novo link se este expirou."));
     } finally {
       setBusy(false);
     }
@@ -569,7 +570,7 @@ function CreateHouse({
       onSession(await gateway.createHouse(name, Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Fortaleza"));
       navigate("/casa");
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Não foi possível criar a casa.");
+      setError(errorMessage(reason, "Não foi possível criar a casa. Revise os dados e tente novamente."));
     } finally {
       setBusy(false);
     }
@@ -619,7 +620,7 @@ function VerifyEmail({ onSession }: { onSession: (session: AuthSession | null) =
       setMessage("E-mail confirmado. Abrindo sua casa…");
       navigate(session.memberships.length ? "/casa" : "/criar-casa", { replace: true });
     }).catch((error: unknown) => {
-      if (current) setMessage(error instanceof Error ? error.message : "Este link não é mais válido.");
+      if (current) setMessage(errorMessage(error, "Este link expirou ou já foi usado. Solicite um novo e-mail de confirmação e tente novamente."));
     });
     return () => { current = false; };
   }, [gateway, navigate, onSession, token]);
@@ -646,7 +647,7 @@ function ResidentHome({
       onSession(null);
       navigate("/entrar");
     } catch (error) {
-      showToast(error instanceof Error ? error.message : "Não foi possível encerrar a sessão.");
+      showToast(errorMessage(error, "Não foi possível encerrar a sessão. Confira sua conexão e tente novamente."));
     } finally {
       setBusy(false);
     }
