@@ -128,7 +128,8 @@ export interface Analytics {
 }
 
 export interface AdminGateway {
-  login(email: string, password: string, totp?: string): Promise<void>;
+  login(email: string, password: string): Promise<"authenticated" | "totp_required">;
+  verifyTotp(totp: string): Promise<void>;
   session(): Promise<boolean>;
   logout(): Promise<void>;
   bootstrapStatus?(): Promise<boolean>;

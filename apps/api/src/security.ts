@@ -27,11 +27,45 @@ export const normalizeEmail = (value: string) => value.trim().toLocaleLowerCase(
 export const token = () => randomBytes(32).toString("base64url");
 export const recoveryCodes = (count = 10) => Array.from({ length: count }, () => randomBytes(9).toString("hex").toUpperCase());
 export const tokenHash = (value: string) => createHash("sha256").update(value).digest("hex");
+export const ADMIN_LOGIN_CHALLENGE_TTL_SECONDS = 5 * 60;
 export const constantEqual = (left: string, right: string) => {
   const a = Buffer.from(left);
   const b = Buffer.from(right);
   return a.length === b.length && timingSafeEqual(a, b);
 };
+
+function adminLoginChallengeKey() {
+  return createHmac("sha256", encryptionKey()).update("cdb-admin-login-challenge:v1").digest();
+}
+
+export function createAdminLoginChallenge(adminId: string) {
+  const payload = Buffer.from(JSON.stringify({
+    adminId,
+    expiresAt: Date.now() + ADMIN_LOGIN_CHALLENGE_TTL_SECONDS * 1000,
+    nonce: randomBytes(16).toString("base64url"),
+  })).toString("base64url");
+  const signature = createHmac("sha256", adminLoginChallengeKey()).update(payload).digest("base64url");
+  return `${payload}.${signature}`;
+}
+
+export function verifyAdminLoginChallenge(value: string) {
+  const [payload, signature, ...extra] = value.split(".");
+  if (!payload || !signature || extra.length) return null;
+  const expected = createHmac("sha256", adminLoginChallengeKey()).update(payload).digest("base64url");
+  if (!constantEqual(signature, expected)) return null;
+  try {
+    const claims: unknown = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+    if (!claims || typeof claims !== "object" || Array.isArray(claims)) return null;
+    const { adminId, expiresAt, nonce } = claims as Record<string, unknown>;
+    if (typeof adminId !== "string" || !adminId || adminId.length > 200 ||
+      typeof expiresAt !== "number" || !Number.isSafeInteger(expiresAt) ||
+      expiresAt <= Date.now() || expiresAt > Date.now() + ADMIN_LOGIN_CHALLENGE_TTL_SECONDS * 1000 + 1000 ||
+      typeof nonce !== "string" || nonce.length < 16) return null;
+    return adminId;
+  } catch {
+    return null;
+  }
+}
 
 export async function hashPassword(password: string) {
   const salt = randomBytes(16);

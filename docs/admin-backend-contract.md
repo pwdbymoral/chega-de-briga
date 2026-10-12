@@ -18,7 +18,7 @@ Este documento define o domínio administrativo e as métricas usadas por `apps/
 | `activity_events` | `id`, `event_type`, `user_id?`, `household_id?`, `occurred_at` | eventos append-only com idempotência por ID; tipos abaixo |
 | `admin_audit_events` | `id`, `actor_admin_id`, `action`, `target_type`, `target_id`, `occurred_at`, `request_id` | append-only; nunca incluir senha, token ou conteúdo doméstico |
 
-IDs são opacos, estáveis e não devem codificar e-mail. Timestamps são ISO 8601 UTC. Endereços exibidos nos contratos administrativos são lidos da identidade `accounts`, não duplicados em `users`. Uma identidade pode ter os dois papéis e usa a mesma senha; a sessão administrativa exige TOTP e não reutiliza o cookie residencial. Política de exclusão e retenção está no contrato de backend/deploy.
+IDs são opacos, estáveis e não devem codificar e-mail. Timestamps são ISO 8601 UTC. Endereços exibidos nos contratos administrativos são lidos da identidade `accounts`, não duplicados em `users`. Uma identidade pode ter os dois papéis e usa a mesma senha; a sessão administrativa exige TOTP e não reutiliza o cookie residencial. O TOTP só é solicitado depois que o servidor valida e-mail e senha; a primeira etapa usa um cookie HttpOnly assinado com validade de cinco minutos.
 
 ## Entrada restrita
 
@@ -37,7 +37,8 @@ O tipo TypeScript em `apps/web/src/admin/contracts.ts` é o contrato de apresent
 
 | Método e rota | Entrada | Saída / regra |
 | --- | --- | --- |
-| `POST /api/admin/session` | e-mail, senha e TOTP | sessão administrativa; cookie seguro no backend |
+| `POST /api/admin/session/challenge` | e-mail e senha | se corretos, retorna `requiresTotp: true` e cria desafio temporário em cookie HttpOnly; não cria sessão |
+| `POST /api/admin/session/verify` | TOTP ou código de recuperação + cookie de desafio | consome o código de recuperação se usado e cria a sessão administrativa |
 | `GET /api/admin/session`, `DELETE /api/admin/session` | — | estado da sessão / encerramento |
 | `GET /api/admin/users` | `search`, `status`, `page`, `page_size` | `items`, `total`, `page`, `pages`; ordenação estável; busca por nome/e-mail |
 | `GET /api/admin/users/:id` | ID | perfil, vínculos, metadados de atividade e auditoria pertinente; sem conteúdo de tarefas |
@@ -51,7 +52,7 @@ O tipo TypeScript em `apps/web/src/admin/contracts.ts` é o contrato de apresent
 | `GET /api/admin/analytics` | `period=7|30|90`, `source`, `size` | agregados, denominadores, intervalo, coortes, série e insights explicáveis |
 | Exportar CSV | Gerado no cliente a partir de `GET /api/admin/analytics` | Contém apenas os agregados já retornados pela API. |
 
-Erros estruturados: `{ code, message, request_id }`. Códigos mínimos: `unauthenticated` (401), `forbidden` (403), `not_found` (404), `duplicate_email` (409), `sole_owner` (409), `invalid_state` (409), `validation` (422), `rate_limited` (429). Não diferenciar publicamente e-mail existente de inexistente em fluxos de cadastro e convite. Listagens devem impor tamanho de página máximo, filtros validados e ordenação determinística. Para atomicidade, auditoria e idempotência, seguir o contrato de backend/deploy.
+Erros estruturados: `{ code, message, request_id }`. Códigos mínimos: `unauthenticated` (401), `invalid_totp` (401), `forbidden` (403), `not_found` (404), `duplicate_email` (409), `sole_owner` (409), `invalid_state` (409), `validation` (422), `rate_limited` (429). Não diferenciar publicamente e-mail existente de inexistente em fluxos de cadastro e convite. Listagens devem impor tamanho de página máximo, filtros validados e ordenação determinística. Para atomicidade, auditoria e idempotência, seguir o contrato de backend/deploy.
 
 ## Eventos e métricas
 

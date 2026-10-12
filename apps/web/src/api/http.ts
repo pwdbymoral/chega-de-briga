@@ -14,6 +14,8 @@ const apiErrorMessages: Record<string, string> = {
   forbidden: "Sua conta não tem acesso a esta ação. Peça ao responsável da casa ou a um administrador para revisar seu acesso.",
   not_found: "Este item não está mais disponível. Atualize a tela e tente novamente.",
   validation: "Revise os dados informados e tente novamente.",
+  invalid_totp: "O código não confere. Verifique o autenticador ou use outro código de recuperação.",
+  rate_limited: "Muitas tentativas. Aguarde alguns minutos antes de tentar novamente.",
   unavailable: "O serviço está temporariamente indisponível. Tente novamente em alguns minutos.",
   sole_owner: "Transfira a responsabilidade da casa para outra pessoa e tente novamente.",
   shared_admin: "Esta conta também tem acesso administrativo. Remova esse acesso no console antes de continuar.",

@@ -309,7 +309,9 @@ export function createDemoGateway(data = createDemoData()): AdminGateway {
           "E-mail ou senha da demonstração incorretos.",
         );
       sessionStorage.setItem("cdb-admin-demo", "1");
+      return "authenticated";
     },
+    async verifyTotp() { throw new Error("A demonstração não usa código autenticador."); },
     async session() {
       await pause();
       return sessionStorage.getItem("cdb-admin-demo") === "1";

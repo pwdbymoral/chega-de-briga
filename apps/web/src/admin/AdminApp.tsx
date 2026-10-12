@@ -196,10 +196,19 @@ function Login({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [totp, setTotp] = useState("");
-  const mutation = useMutation({
-    mutationFn: () => gateway.login(email, password, totp),
-    onSuccess: onLogin,
+  const [step, setStep] = useState<"credentials" | "totp">("credentials");
+  const loginMutation = useMutation({
+    mutationFn: () => gateway.login(email, password),
+    onSuccess: (result) => {
+      if (result === "authenticated") onLogin();
+      else {
+        setPassword("");
+        setStep("totp");
+      }
+    },
   });
+  const totpMutation = useMutation({ mutationFn: () => gateway.verifyTotp(totp), onSuccess: onLogin });
+  const mutation = step === "credentials" ? loginMutation : totpMutation;
   function submit(event: FormEvent) {
     event.preventDefault();
     mutation.mutate();
@@ -218,34 +227,81 @@ function Login({
       <section className={styles.loginLayout}>
         <Card className={styles.loginCard}>
           <KeyRound size={34} aria-hidden="true" />
-          <h1>{import.meta.env.DEV ? "Entrar na demo" : "Entrar na administração"}</h1>
-          {import.meta.env.DEV && <><p>Use as credenciais fictícias abaixo para explorar o fluxo.</p><div className={styles.credentials}><span>E-mail <strong>admin@exemplo.test</strong></span><span>Senha <strong>demonstracao</strong></span></div></>}
+          <h1>
+            {step === "totp"
+              ? "Verificar o código"
+              : import.meta.env.DEV
+                ? "Entrar na demo"
+                : "Entrar na administração"}
+          </h1>
+          {import.meta.env.DEV && <>
+            <p>Use as credenciais fictícias abaixo para explorar o fluxo.</p>
+            <div className={styles.credentials}>
+              <span>E-mail <strong>admin@exemplo.test</strong></span>
+              <span>Senha <strong>demonstracao</strong></span>
+            </div>
+          </>}
           <form onSubmit={submit} className={styles.stack}>
-            <TextField
-              id="admin-email"
-              type="email"
-              label="E-mail"
-              autoComplete="username"
-              required
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-            />
-            {!import.meta.env.DEV && <TextField id="admin-totp" label="Código do autenticador ou de recuperação" inputMode="text" autoComplete="one-time-code" minLength={6} maxLength={18} required value={totp} onChange={(event) => setTotp(event.target.value)} />}
-            <TextField
-              id="admin-password"
-              type="password"
-              label="Senha"
-              autoComplete="current-password"
-              required
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-            />
+            {step === "credentials" ? (
+              <>
+                <TextField
+                  id="admin-email"
+                  type="email"
+                  label="E-mail"
+                  autoComplete="username"
+                  required
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                />
+                <TextField
+                  id="admin-password"
+                  type="password"
+                  label="Senha"
+                  autoComplete="current-password"
+                  required
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                />
+              </>
+            ) : (
+              <>
+                <p>Digite o código do autenticador ou use um código de recuperação.</p>
+                <TextField
+                  id="admin-totp"
+                  label="Código do autenticador ou de recuperação"
+                  inputMode="text"
+                  autoComplete="one-time-code"
+                  minLength={6}
+                  maxLength={18}
+                  autoFocus
+                  required
+                  value={totp}
+                  onChange={(event) => setTotp(event.target.value)}
+                />
+              </>
+            )}
             {mutation.isError && <QueryError error={mutation.error} />}
             <Button type="submit" disabled={mutation.isPending}>
-              {import.meta.env.DEV ? "Entrar na demo" : "Entrar"} <ArrowRight size={18} aria-hidden="true" />
+              {step === "totp"
+                ? "Verificar e entrar"
+                : import.meta.env.DEV
+                  ? "Entrar na demo"
+                  : "Entrar"}{" "}
+              <ArrowRight size={18} aria-hidden="true" />
             </Button>
+            {step === "totp" && <Button
+              variant="quiet"
+              disabled={mutation.isPending}
+              onClick={() => {
+                setStep("credentials");
+                setTotp("");
+                totpMutation.reset();
+              }}
+            >
+              Voltar
+            </Button>}
           </form>
-          {bootstrapEnabled && <p className={styles.loginHelp}><Link to="/admin/setup">Configurar a primeira conta</Link></p>}
+          {step === "credentials" && bootstrapEnabled && <p className={styles.loginHelp}><Link to="/admin/setup">Configurar a primeira conta</Link></p>}
         </Card>
         <div className={styles.loginIntro}>
           <span className={styles.eyebrow}>ÁREA DA EQUIPE{import.meta.env.DEV ? " · DEMONSTRAÇÃO" : ""}</span>
@@ -1645,10 +1701,6 @@ function AnalyticsContent({ data }: { data: Analytics }) {
             <li key={item}>{item}</li>
           ))}
         </ul>
-        <p className={styles.finePrint}>
-          Sinais, não causalidade. Nenhuma receita, preço ou disposição a pagar
-          foi estimada.
-        </p>
       </Card>
     </>
   );

@@ -2,9 +2,11 @@ import type { AdminGateway, Analytics, AnalyticsFilter, Household, Invitation, U
 import { api, ApiError, json } from "../api/http";
 
 export const httpAdminGateway: AdminGateway = {
-  async login(email, password, totp) {
-    await api("/api/admin/session", json("POST", { email, password, totp }));
+  async login(email, password) {
+    await api("/api/admin/session/challenge", json("POST", { email, password }));
+    return "totp_required";
   },
+  async verifyTotp(totp) { await api("/api/admin/session/verify", json("POST", { totp })); },
   async session() {
     try { await api("/api/admin/session"); return true; }
     catch (error) { if (error instanceof ApiError && error.status === 401) return false; throw error; }

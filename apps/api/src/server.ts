@@ -10,6 +10,8 @@ import { calculateAnalytics, type AnalyticsDataSet, type AnalyticsFilter } from 
 import { pool, id } from "./db.js";
 import { sendMail } from "./mail.js";
 import {
+  ADMIN_LOGIN_CHALLENGE_TTL_SECONDS,
+  createAdminLoginChallenge,
   createTotpSecret,
   decryptSecret,
   encryptSecret,
@@ -19,6 +21,7 @@ import {
   token,
   tokenHash,
   totpUri,
+  verifyAdminLoginChallenge,
   verifyPassword,
   verifyTotp,
 } from "./security.js";
@@ -134,6 +137,8 @@ function houseState(value: unknown) {
 }
 const setCookie = (reply: FastifyReply, name: string, value: string, maxAge: number) =>
   reply.setCookie(name, value, { httpOnly: true, secure: secureCookie, sameSite: "lax", path: "/", maxAge });
+const clearAdminLoginChallenge = (reply: FastifyReply) =>
+  reply.clearCookie("cdb_admin_challenge", { path: "/api/admin/session", secure: secureCookie, sameSite: "lax" });
 
 async function withTransaction<T>(work: (client: import("pg").PoolClient) => Promise<T>) {
   const client = await pool.connect();
@@ -485,31 +490,58 @@ app.post("/api/admin/bootstrap/complete", { config: { rateLimit: { max: 5, timeW
   return { ok: true, recoveryCodes: result.codes };
 });
 
-app.post("/api/admin/session", { config: { rateLimit: { max: 5, timeWindow: "15 minutes" } } }, async (request, reply) => {
+app.post("/api/admin/session/challenge", { config: { rateLimit: { max: 5, timeWindow: "15 minutes" } } }, async (request, reply) => {
   const body = bodyOf(request);
   const email = normalizeEmail(text(body, "email"));
   const result = await pool.query(
-    `SELECT p.id,a.email,a.password_hash,p.totp_secret FROM platform_admins p
+    `SELECT p.id,a.password_hash FROM platform_admins p
      JOIN accounts a ON a.id=p.account_id WHERE a.email=$1`,
     [email],
   );
   const admin = result.rows[0];
   const passwordOk = admin ? await verifyPassword(text(body, "password"), admin.password_hash as string) : false;
-  const code = text(body, "totp").trim();
-  let totpOk = admin ? verifyTotp(decryptSecret(admin.totp_secret as string), code) : false;
-  if (admin && passwordOk && !totpOk) {
+  if (!admin || !passwordOk) {
+    clearAdminLoginChallenge(reply);
+    return bad(reply, 401, "unauthenticated", "E-mail ou senha incorretos.");
+  }
+  reply.setCookie("cdb_admin_challenge", createAdminLoginChallenge(admin.id as string), {
+    httpOnly: true,
+    secure: secureCookie,
+    sameSite: "lax",
+    path: "/api/admin/session",
+    maxAge: ADMIN_LOGIN_CHALLENGE_TTL_SECONDS,
+  });
+  return { requiresTotp: true };
+});
+
+app.post("/api/admin/session/verify", { config: { rateLimit: { max: 5, timeWindow: "15 minutes" } } }, async (request, reply) => {
+  const adminId = verifyAdminLoginChallenge(request.cookies.cdb_admin_challenge ?? "");
+  if (!adminId) {
+    clearAdminLoginChallenge(reply);
+    return bad(reply, 401, "unauthenticated", "A verificação expirou. Entre novamente.");
+  }
+  const result = await pool.query("SELECT id,totp_secret FROM platform_admins WHERE id=$1", [adminId]);
+  const admin = result.rows[0];
+  if (!admin) {
+    clearAdminLoginChallenge(reply);
+    return bad(reply, 401, "unauthenticated", "A verificação expirou. Entre novamente.");
+  }
+  const code = text(bodyOf(request), "totp").trim();
+  let totpOk = verifyTotp(decryptSecret(admin.totp_secret as string), code);
+  if (!totpOk) {
     const recovery = code.toUpperCase().replace(/[^A-F0-9]/g, "");
     if (recovery.length === 18) {
       totpOk = await withTransaction(async (client) => {
-        const match = await client.query("SELECT id FROM admin_recovery_codes WHERE admin_id=$1 AND code_hash=$2 AND used_at IS NULL FOR UPDATE", [admin.id, tokenHash(recovery)]);
+        const match = await client.query("SELECT id FROM admin_recovery_codes WHERE admin_id=$1 AND code_hash=$2 AND used_at IS NULL FOR UPDATE", [adminId, tokenHash(recovery)]);
         if (!match.rowCount) return false;
         await client.query("UPDATE admin_recovery_codes SET used_at=now() WHERE id=$1", [match.rows[0]!.id]);
         return true;
       });
     }
   }
-  if (!admin || !passwordOk || !totpOk) return bad(reply, 401, "unauthenticated", "E-mail, senha ou código incorreto.");
+  if (!totpOk) return bad(reply, 401, "invalid_totp", "Código incorreto. Confira o autenticador ou use um código de recuperação.");
   await startAdminSession(reply, admin.id as string);
+  clearAdminLoginChallenge(reply);
   return { ok: true };
 });
 
@@ -517,6 +549,7 @@ app.get("/api/admin/session", { preHandler: adminSession }, async (request) => (
 app.delete("/api/admin/session", { preHandler: adminSession }, async (request, reply) => {
   await pool.query("DELETE FROM admin_sessions WHERE admin_id=$1", [request.admin!.id]);
   reply.clearCookie("cdb_admin", { path: "/", secure: secureCookie, sameSite: "lax" });
+  clearAdminLoginChallenge(reply);
   return { ok: true };
 });
 
