@@ -2,7 +2,7 @@
 
 **Estado:** modelo de produto consolidado para a v1. Define navegação, fluxos e comportamento; não é especificação visual nem implementação das telas residenciais.
 
-**Estado atual do código:** há demos locais de autenticação e criação de casa, além de telas navegáveis para tarefas, compras, perfil e gestão da casa. Não há backend residencial: os dados de casa são gerados localmente, as alterações ficam em memória e se perdem ao recarregar; e-mail, sincronização offline e push ainda não estão conectados. O cadastro público continua fechado. As telas demonstram os fluxos, mas não tornam essas funções disponíveis para uso real.
+**Estado atual do código:** a PWA e a API residencial com persistência PostgreSQL estão implementadas; produção ainda precisa ser configurada e validada. O cadastro público permanece fechado por padrão (`PUBLIC_SIGNUP_ENABLED=false`); enquanto isso, `/` apresenta o produto e a lista de espera. `/componentes` é uma galeria de desenvolvimento, não uma página pública.
 
 ## Fontes de verdade
 
@@ -13,6 +13,14 @@
 - [Contrato do backend administrativo](./admin-backend-contract.md): entidades e operações do console.
 
 Não duplicar aqui cores, espaçamentos, props ou inventário de componentes. Antes de criar componentes, comparar as necessidades validadas com o código e com a galeria `/componentes`.
+
+## Landing, lista de espera e primeiro uso
+
+A rota pública `/` apresenta o benefício do produto, demonstra Início, Tarefas/Rotinas e Compras, explica o fluxo, responde dúvidas frequentes e oferece a lista de espera. A navegação usa âncoras para tarefas/rotinas, compras e inscrição; a galeria `/componentes` fica restrita ao ambiente de desenvolvimento. O botão de cadastro público só aparece quando `PUBLIC_SIGNUP_ENABLED` estiver habilitada no servidor.
+
+Na lista de espera, a pessoa escolhe e-mail ou WhatsApp, informa somente o contato e autoriza explicitamente o aviso de abertura pelo canal escolhido. O aviso de privacidade explica finalidade, retenção e remoção. Nesta fase não há envio automático de e-mail, SMS ou WhatsApp. A implementação e os limites de dados ficam no [contrato de backend e deploy](./backend-deployment-contract-v1.md).
+
+Após criar uma casa vazia, Início mostra uma orientação curta: criar tarefa/rotina (ação principal) ou adicionar um item de compras. Não há tour, conteúdo falso, convite ou push obrigatório. O cartão desaparece depois da primeira tarefa/rotina ou do primeiro item de compras novo; duplicatas e atualizações não contam. A casa guarda um marco persistente para o cartão não voltar após concluir uma compra ou recarregar. Convites e casas com atividade existente vão direto para a tela habitual.
 
 A barra inferior é a navegação definida para as áreas residenciais. O `MobileMenu` atual atende links do shell público/administrativo; não presumir que ele seja a barra de abas do morador. Ao implementar o shell residencial, atualizar o guia de componentes com a distinção.
 
@@ -139,6 +147,8 @@ Os blocos indicam a ordem e a função dos elementos; textos e aparência serão
 6. Barra inferior fixa.
 
 Casa sem tarefas mostra um convite claro para criar a primeira tarefa/rotina. Casa sem itens mostra uma ação para adicionar o primeiro item.
+
+Quando a casa ainda não tem tarefa nem item de compras e não registrou primeiro valor, mostrar o cartão de primeiro uso com as duas ações descritas acima. As inclusões offline contam depois que chegam ao servidor; o marco é gravado uma única vez na casa.
 
 ### 3. Tarefas
 

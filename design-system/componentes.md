@@ -10,7 +10,8 @@ Um componente é uma peça reutilizável com comportamento e API próprios. Um p
 
 | Necessidade | Use | Não use quando |
 | --- | --- | --- |
-| Informar texto ou um valor de entrada simples | `TextField`, com rótulo visível; `hint` ou `error` quando necessário. O tipo nativo do input define formatos como data ou senha. Ao avaliar o alvo clicável, confira o input e o rótulo associado. | A pessoa precisa escolher entre opções fechadas. |
+| Informar texto ou um valor de entrada simples | `TextField`, com rótulo visível; `hint` ou `error` quando necessário. O tipo nativo do input define formatos como texto ou senha. Ao avaliar o alvo clicável, confira o input e o rótulo associado. | A pessoa precisa escolher uma data ou optar entre alternativas fechadas. |
+| Escolher uma data no calendário da casa | `DatePicker`, com rótulo visível, navegação por mês, seleção de dia e atalhos rápidos contextuais. | A data for um ano ou mês isolado, ou quando uma entrada de texto livre for suficiente. |
 | Escolher um único valor de uma lista | `Select` com variante `field` em formulários ou `compact` quando o controle precisa ocupar menos espaço. As variantes usam a mesma lista. Na variante compacta, o contexto ao redor deve deixar a finalidade e o valor selecionado claros; não deixe uma seta isolada ser a única pista visível. | A ação navega ou executa um comando. Não use para múltipla escolha nem para listas extensas que exigem busca; o componente não oferece busca. Para poucas opções exclusivas visíveis, prefira um grupo de `<input type="radio">`; para várias escolhas independentes, use checkboxes. |
 | Marcar ou desmarcar uma condição independente | `Checkbox`, para uma opção que pode coexistir com outras. | A escolha é exclusiva; use radios ou `Select`. Para concluir uma tarefa, use um botão com rótulo. |
 

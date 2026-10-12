@@ -1,7 +1,8 @@
 import type { HouseData } from "../resident/ResidentModel";
 
 export type HouseholdRole = "responsavel" | "morador";
-export type AccessSource = "lista" | "convite_admin" | "convite_morador";
+export type AccessSource = "lista" | "convite_admin" | "convite_morador" | "publico";
+export type WaitlistContactChannel = "email" | "whatsapp";
 export type UserStatus = "ativo" | "suspenso" | "excluido";
 export type InvitationStatus = "pendente" | "aceito" | "revogado" | "expirado";
 export type Period = 7 | 30 | 90;
@@ -22,6 +23,7 @@ export interface Household {
   id: string;
   name: string;
   createdAt: string;
+  firstValueAt?: string;
 }
 export interface Membership {
   userId: string;
@@ -38,7 +40,7 @@ export interface AllowEntry {
 export interface Invitation {
   id: string;
   email: string;
-  source: Exclude<AccessSource, "lista">;
+  source: Exclude<AccessSource, "lista" | "publico">;
   householdId?: string;
   inviterId?: string;
   status: InvitationStatus;
@@ -65,7 +67,8 @@ export interface ActivityEvent {
     | "tarefa_criada"
     | "tarefa_concluida"
     | "tarefa_pulada"
-    | "tarefa_editada";
+    | "tarefa_editada"
+    | "item_compra_adicionado";
   at: string;
 }
 export interface AuditEvent {
@@ -120,12 +123,49 @@ export interface Analytics {
   sampleHouses: number;
   people: FunnelStep[];
   activation: FunnelStep[];
+  firstValue: FunnelStep[];
   weeklyActive: { week: string; houses: number; denominator: number }[];
   cohorts: CohortRow[];
   overdueOpen: number;
   tasksOpen: number;
   insights: string[];
 }
+export interface WaitlistEntry {
+  id: string;
+  channel: WaitlistContactChannel;
+  contact: string;
+  createdAt: string;
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
+}
+export interface WaitlistQuery {
+  search: string;
+  channel: WaitlistContactChannel | "todos";
+  campaign: string;
+  page: number;
+}
+export interface WaitlistPage {
+  items: WaitlistEntry[];
+  total: number;
+  page: number;
+  pages: number;
+}
+export interface WaitlistAnalytics {
+  period: 7 | 30 | 90;
+  signupEnabled: boolean;
+  from: string;
+  to: string;
+  pageLoads: number;
+  formStarts: number;
+  signups: number;
+  conversion: number;
+  byChannel: { channel: WaitlistContactChannel; count: number }[];
+  byCampaign: { campaign: string; pageLoads: number; formStarts: number; signups: number }[];
+  daily: { date: string; pageLoads: number; formStarts: number; signups: number }[];
+  publicFunnel: FunnelStep[];
+}
+export interface PublicConfig { signupEnabled: boolean }
 
 export interface AdminGateway {
   login(email: string, password: string): Promise<"authenticated" | "totp_required">;
@@ -169,12 +209,15 @@ export interface AdminGateway {
     activity: ActivityEvent[];
   }>;
   analytics(filter: AnalyticsFilter): Promise<Analytics>;
+  waitlistAnalytics(period: 7 | 30 | 90): Promise<WaitlistAnalytics>;
+  waitlist(query: WaitlistQuery): Promise<WaitlistPage>;
+  deleteWaitlistEntry(id: string): Promise<void>;
 }
 
 export interface InvitationPreview {
   id: string;
   email: string;
-  source: Exclude<AccessSource, "lista">;
+  source: Exclude<AccessSource, "lista" | "publico">;
   householdName?: string;
   status: InvitationStatus;
   expiresAt: string;
@@ -210,7 +253,7 @@ export interface AuthGateway {
 
 export interface ResidentGateway {
   loadHousehold(id: string): Promise<{ version: number; data: HouseData }>;
-  saveHousehold(id: string, version: number, data: HouseData, events?: TaskSyncEvent[]): Promise<{ version: number }>;
+  saveHousehold(id: string, version: number, data: HouseData, events?: ProductSyncEvent[]): Promise<{ version: number; firstValueAt?: string }>;
   updateProfileName(name: string): Promise<void>;
   exportAccount(): Promise<unknown>;
   deleteAccount(): Promise<void>;
@@ -234,4 +277,9 @@ export type TaskSyncEvent = {
   taskId: string;
   occurrenceDate?: string;
   scope?: "occurrence" | "series";
+};
+export type ProductSyncEvent = TaskSyncEvent | {
+  id: string;
+  type: "item_compra_adicionado";
+  itemId: string;
 };

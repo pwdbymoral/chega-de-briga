@@ -2,9 +2,9 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { ArrowLeft, Check, ChevronDown, House, ListChecks, Plus, ShoppingBasket } from "lucide-react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router";
 import type { AuthSession } from "../admin/contracts";
-import type { ResidentGateway, TaskSyncEvent } from "../admin/contracts";
+import type { ProductSyncEvent, ResidentGateway, TaskSyncEvent } from "../admin/contracts";
 import { ApiError, errorMessage } from "../api/http";
-import { Avatar, Button, Checkbox, EmptyState, TextField } from "../components/ui";
+import { Avatar, Button, Checkbox, DatePicker, EmptyState, TextField } from "../components/ui";
 import { BottomSheet, ConfirmDialog } from "../components/ResidentOverlays";
 import { useToast } from "../components/Toast";
 import {
@@ -137,15 +137,16 @@ export function ResidentApp({
         versionRef.current[id] = saved.version;
         const latest = cacheRef.current[id];
         const stillPending = latest !== cached && latest.pending;
+        const savedData = { ...(latest?.data ?? cached.data), firstValueAt: saved.firstValueAt };
         cacheHouse(id, {
           version: saved.version,
-          data: latest?.data ?? cached.data,
+          data: savedData,
           baseData: cached.data,
           pending: stillPending,
           events: latest && latest !== cached ? latest.events.filter((event) => !cached.events.some((sent) => sent.id === event.id)) : [],
           savedAt: new Date().toISOString(),
         });
-        if (!stillPending) setDataByHouse((current) => ({ ...current, [id]: cached.data }));
+        if (!stillPending) setDataByHouse((current) => ({ ...current, [id]: savedData }));
       } catch (error) {
         if (error instanceof ApiError && error.status === 409) {
           const current = error.payload.current as { version?: number; data?: Partial<HouseData> } | undefined;
@@ -257,7 +258,7 @@ export function ResidentApp({
 
   useEffect(() => { syncConflictRef.current = syncConflict; }, [syncConflict]);
 
-  function patchData(update: (current: HouseData) => HouseData, kind: "task" | "shopping" = "task", event?: TaskSyncEvent) {
+  function patchData(update: (current: HouseData) => HouseData, kind: "task" | "shopping" = "task", event?: ProductSyncEvent) {
     if (!navigator.onLine && kind === "task") {
       showToast("Tarefas e rotinas ficam disponíveis somente para consulta sem conexão.");
       return false;
@@ -271,7 +272,10 @@ export function ResidentApp({
       return false;
     }
     const currentData = dataByHouse[householdId] ?? data;
-    const nextData = update(currentData);
+    const updatedData = update(currentData);
+    const nextData = event && (event.type === "tarefa_criada" || event.type === "item_compra_adicionado") && !currentData.firstValueAt
+      ? { ...updatedData, firstValueAt: new Date().toISOString() }
+      : updatedData;
     setDataByHouse((current) => ({
       ...current,
       [householdId]: nextData,
@@ -465,7 +469,8 @@ export function ResidentApp({
       showToast(`${duplicate.name} já estava na lista; o item foi atualizado.`);
       return;
     }
-    patchData((current) => ({ ...current, items: [{ id: newId("item"), name: cleaned, quantity: quantity.trim(), priority }, ...current.items] }), "shopping");
+    const item = { id: newId("item"), name: cleaned, quantity: quantity.trim(), priority };
+    patchData((current) => ({ ...current, items: [item, ...current.items] }), "shopping", { id: newId("evento"), type: "item_compra_adicionado", itemId: item.id });
     showToast("Item adicionado à lista.");
   }
 
@@ -608,7 +613,7 @@ export function ResidentApp({
         {online && pendingHouses[householdId] && <div className={styles.syncNotice} role="status"><span>Há mudanças neste aparelho aguardando sincronização.</span><Button variant="quiet" onClick={() => void syncCachedHouse(householdId)}>Tentar sincronizar</Button></div>}
         {syncConflict && !syncConflictOpen && <Button variant="secondary" onClick={() => setSyncConflictOpen(true)}>Resolver mudanças em conflito</Button>}
         {!online && !cacheRef.current[householdId] ? <EmptyState title="Conecte-se para carregar esta casa." description="Depois de carregar uma vez, você poderá consultar tarefas e atualizar a lista de compras sem conexão." /> : route === "/casa" || route === "/casa/inicio" ? (
-          <HomeScreen name={session.user.name} tasks={data.tasks} items={data.items} members={data.members} onComplete={completeTask} onAssume={assumeTask} />
+          <HomeScreen name={session.user.name} tasks={data.tasks} items={data.items} members={data.members} showFirstUse={!data.firstValueAt && data.tasks.length === 0 && data.items.length === 0} onComplete={completeTask} onAssume={assumeTask} />
         ) : route === "/casa/tarefas" ? (
           <>
             <div className={styles.primaryAction}><Button onClick={() => navigate("/casa/tarefas/nova")}><Plus size={18} aria-hidden="true" /> Nova tarefa</Button></div>
@@ -708,7 +713,7 @@ export function ResidentApp({
         setResumeTaskId(undefined);
       }}>Retomar</Button></>}>
         <p className={styles.sheetLead}>As datas durante a pausa não serão recriadas. Escolha a próxima data da rotina.</p>
-        <TextField id="resume-date" label="Próxima ocorrência" type="date" required value={resumeDate} onChange={(event) => setResumeDate(event.target.value)} />
+        <DatePicker id="resume-date" label="Próxima ocorrência" required value={resumeDate} onChange={setResumeDate} />
       </BottomSheet>
 
       <BottomSheet open={Boolean(editingItem)} onClose={() => setEditingItem(undefined)} title={`Editar ${editingItem?.name ?? "item"}`} footer={<><Button variant="secondary" onClick={() => setEditingItem(undefined)}>Cancelar</Button><Button onClick={saveShoppingEdit}>Salvar item</Button></>}>

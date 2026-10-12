@@ -50,6 +50,7 @@ describe("telas de autenticação", () => {
     await user.click(screen.getByRole("button", { name: /criar casa/i }));
     await screen.findByRole("heading", { name: "Início" });
     await screen.findByRole("button", { name: "Apê da Ana" });
+    expect(screen.getByRole("heading", { name: "Comece pelo que já precisa acontecer." })).toBeInTheDocument();
 
     await user.click(screen.getByRole("link", { name: "Abrir perfil" }));
     await screen.findByRole("heading", { name: "Perfil" });

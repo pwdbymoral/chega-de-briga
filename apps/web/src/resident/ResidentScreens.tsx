@@ -25,6 +25,7 @@ import {
   Button,
   Card,
   Checkbox,
+  DatePicker,
   EmptyState,
   IconButton,
   Select,
@@ -107,6 +108,7 @@ export function HomeScreen({
   tasks,
   items,
   members,
+  showFirstUse = false,
   onComplete,
   onAssume,
 }: {
@@ -114,6 +116,7 @@ export function HomeScreen({
   tasks: ResidentTask[];
   items: ShoppingItem[];
   members: ResidentMember[];
+  showFirstUse?: boolean;
   onComplete: (id: string) => void;
   onAssume: (id: string) => void;
 }) {
@@ -131,6 +134,16 @@ export function HomeScreen({
         </div>
         <img src="/faisca.svg" alt="" aria-hidden="true" />
       </section>
+
+      {showFirstUse && <Card className={styles.firstUseCard}>
+        <span className={styles.eyebrow}>PRIMEIRO COMBINADO</span>
+        <h2>Comece pelo que já precisa acontecer.</h2>
+        <p>Registre uma tarefa da casa ou anote algo que está faltando. O combinado fica visível para todo mundo.</p>
+        <div className={styles.firstUseActions}>
+          <Link to="/casa/tarefas/nova"><Plus size={18} aria-hidden="true" /> Criar tarefa ou rotina</Link>
+          <Link to="/casa/compras"><ShoppingBasket size={18} aria-hidden="true" /> Adicionar item de compras</Link>
+        </div>
+      </Card>}
 
       <section className={styles.contentSection} aria-labelledby="home-tasks-title">
         <div className={styles.sectionHeading}>
@@ -421,13 +434,12 @@ export function TaskEditor({
         options={repeatOptions.map((option) => ({ ...option, disabled: isOccurrenceEdit && option.value !== task?.repeat }))}
         onChange={(value) => setRepeat(value as Repeat)}
       />
-      <TextField
+      <DatePicker
         id="task-date"
         label={repeat === "once" ? "Data (opcional)" : "Primeira ocorrência"}
-        type="date"
         required={repeat !== "once"}
         value={dueDate}
-        onChange={(event) => setDueDate(event.target.value)}
+        onChange={setDueDate}
       />
       {repeat === "weekly" && (
         <fieldset className={styles.weekdays}>

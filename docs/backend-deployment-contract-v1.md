@@ -15,6 +15,8 @@ Não copiar para este documento regras de interface, recorrência ou métricas j
 | Tema | Decisão |
 | --- | --- |
 | Finalidade | Piloto privado para uma casa; cadastro público permanece fechado. |
+| Lista de espera | `/` recebe e-mail ou WhatsApp com autorização explícita para um aviso; não envia mensagens nesta fase. Coletar contatos reais somente após validar o aviso de privacidade, a identidade/contato do responsável e a implantação PostgreSQL. |
+| Abertura pública | `PUBLIC_SIGNUP_ENABLED=false` por padrão. Habilitar no runtime somente após validar o lançamento; o servidor grava a primeira data de abertura uma única vez e elimina todos os contatos da espera ao completar 90 dias. |
 | Hospedagem | Coolify self-hosted já existente; PostgreSQL e app no servidor atual, sem serviço pago adicional. |
 | Arquitetura | Um recurso Docker Compose do Git inicia dois serviços privados: Node/TypeScript (PWA + API) e PostgreSQL. Só o app recebe domínio público; o banco fica na rede privada do Compose. |
 | Produção | `main` publica em `https://app.forjacorp.com`. |
@@ -39,6 +41,7 @@ O e-mail de login do responsável e o usuário SMTP são configuração privada:
 | --- | --- | --- | --- |
 | `APP_STAGE` | `production` | `preview` | Define quais integrações são obrigatórias no início do serviço. |
 | `APP_ORIGIN` | `COOLIFY_URL` (com fallback para `https://app.forjacorp.com`) | URL HTTPS do próprio PR, fornecida por `COOLIFY_URL` | Usada em links, validação de origem e cookies. |
+| `PUBLIC_SIGNUP_ENABLED` | `false` | `false` | Só `true` abre cadastro sem convite/autorização e muda a CTA pública; validação de e-mail e convites existentes continuam ativos. |
 | `POSTGRES_PASSWORD` | Segredo de produção no Coolify | Segredo separado, sem credencial de produção | Use valor hexadecimal para formar a URL PostgreSQL sem ambiguidades. O Compose deriva `DATABASE_URL` e injeta a mesma senha no serviço do banco. |
 | `DATABASE_URL` | Derivada pelo Compose para o PostgreSQL persistente | Derivada pelo Compose para o PostgreSQL descartável do PR | Não configurar ou compartilhar URL externa entre ambientes. O serviço `database` não publica porta. |
 | `ENCRYPTION_KEY` | Obrigatória, privada | Obrigatória, separada da produção | 32 bytes codificados em Base64; protege TOTP, assinatura push e links em outbox. Perder a chave impede descriptografar esses dados. |
@@ -114,6 +117,9 @@ Migrações aplicadas em produção são imutáveis: mudanças no esquema entram
 | Operação | Endpoint sugerido | Regra principal |
 | --- | --- | --- |
 | Aviso de privacidade | Rota pública `/privacidade` na PWA | Sem autenticação; linkado nas telas de entrar, cadastro e perfil. |
+| Configuração pública | `GET /api/public/config` | Informa se o cadastro público está habilitado; não revela dados pessoais. |
+| Métricas da landing | `POST /api/public/landing-events` | Registra somente carregamento e início do formulário, canal/tag de campanha permitidos; sem identificador de visitante, IP como dado de produto ou user agent. |
+| Lista de espera | `POST /api/waitlist` | Valida e normaliza e-mail/WhatsApp, exige consentimento versionado, usa honeypot, rate limit e resposta neutra para duplicatas. Não envia mensagem nesta fase. |
 | Bootstrap administrativo | `GET /api/admin/bootstrap/status`, `POST /api/admin/bootstrap/request`, `/challenge` e `/complete` | Disponível somente sem contas admin; link de uso único; conclusão exige token, senha e TOTP; códigos de recuperação são exibidos uma vez. |
 | Sessão residencial | `POST/GET/DELETE /api/auth/session` | Criar, consultar e encerrar sessão de morador. |
 | Cadastro por elegibilidade | `POST /api/auth/registrations` | Revalidar autorização ou convite no servidor; aceitar convite e criar vínculo na mesma transação. |
@@ -143,6 +149,8 @@ Respostas de erro usam `{ code, message, request_id }`; validar entrada no servi
 - **Exportar meus dados** no perfil gera JSON autenticado com os dados da conta, casas e conteúdo compartilhado acessível; endereços de e-mail de outros membros são omitidos.
 - **Excluir conta** aplica o fluxo definido na [modelagem residencial](./modelagem-mobile-v1.md); a API revoga sessões e assinaturas push e registra o evento sem e-mail. Cópias de backup podem manter dados removidos até o fim do prazo de retenção.
 - Eventos de uso guardam apenas tipo, horário e IDs necessários para métricas agregadas, nunca título, descrição, conteúdo de compras ou token. Eliminar eventos de uso após 90 dias e registros de auditoria administrativa após 12 meses.
+- Contatos da lista de espera ficam separados dos eventos: canal, contato normalizado, registro/versão do consentimento e tags `utm_source`, `utm_medium`, `utm_campaign`. Não pedir nome, endereço ou outros dados; não associar contato a conta nem oferecer exportação. O painel admin protegido permite busca e remoção, sem escrever contatos nos logs. Após a flag pública ser ligada pela primeira vez, apagar todos esses contatos 90 dias depois; a política de conta permanece separada.
+- A medição interna conta carregamentos (recarregamentos incluídos), inícios e inscrições; não usa cookies/IDs de visitante, GA4 ou Clarity nesta entrega. A taxa é inscrições/carregamentos. O funil público após abertura é agregado e não faz associação individual com leads da espera.
 - A ANPD reconhece direitos de confirmação, acesso, correção, anonimização, bloqueio, eliminação e portabilidade. As telas e o fluxo de atendimento devem corresponder ao aviso publicado. [ANPD: direitos dos titulares](https://www.gov.br/anpd/pt-br/assuntos/titular-de-dados/direito-dos-titulares)
 
 ## Backup e recuperação

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
-import { Link, NavLink, Route, Routes, useLocation } from "react-router";
+import { Link, NavLink, Navigate, Route, Routes, useLocation } from "react-router";
 import { ArrowRight, Check, Moon, RotateCcw, Sun } from "lucide-react";
 import { useRegisterSW } from "virtual:pwa-register/react";
 import { tokens } from "@chega-de-briga/design-system/tokens.native";
@@ -7,6 +7,7 @@ import {
   Avatar,
   Button,
   Card,
+  DatePicker,
   EmptyState,
   IconButton,
   Select,
@@ -18,6 +19,7 @@ import { BottomSheet, ConfirmDialog } from "./components/ResidentOverlays";
 import { ConsoleLoading } from "./components/ConsoleLoading";
 import { SplashScreen } from "./components/SplashScreen";
 import { useToast } from "./components/Toast";
+import { LandingPage } from "./LandingPage";
 import {
   readThemePreference,
   resolveTheme,
@@ -115,58 +117,7 @@ function PwaStatus() {
 }
 
 function Home() {
-  return (
-    <>
-      <section className={styles.hero} aria-labelledby="home-title">
-        <div className={styles.heroCopy}>
-          <span className={styles.eyebrow}>
-            CASA COMPARTILHADA, VIDA MAIS LEVE
-          </span>
-          <h1 id="home-title">
-            A casa não é um <em>ringue.</em>
-          </h1>
-          <p>
-            Uma casa funciona melhor quando o combinado é claro. Chega de Briga
-            está tomando forma para dividir tarefas sem dividir as pessoas.
-          </p>
-          <Link className={styles.heroLink} to="/componentes">
-            Ver componentes <ArrowRight aria-hidden="true" size={20} />
-          </Link>
-        </div>
-        <div className={styles.heroArt} aria-hidden="true">
-          <img className={styles.paths} src="/caminhos.svg" alt="" />
-          <img className={styles.spark} src="/faisca.svg" alt="" />
-          <div className={styles.sticker}>
-            TÁ
-            <br />
-            COMBINADO.
-          </div>
-        </div>
-        <div className={styles.heroFooter}>
-          <span>CHEGA DE BRIGA / 01</span>
-          <span>MENOS CLIMÃO, MAIS COMBINADO</span>
-        </div>
-      </section>
-      <section className={styles.intro} aria-labelledby="intro-title">
-        <span className={styles.eyebrow}>UM JEITO DE FAZER</span>
-        <h2 id="intro-title">
-          Clareza primeiro.
-          <br />
-          <em>Personalidade sempre.</em>
-        </h2>
-        <div className={styles.introGrid}>
-          <p>
-            As peças visuais já têm cores, palavras, formas e estados
-            consistentes. A galeria mostra como elas se comportam antes de
-            virarem telas.
-          </p>
-          <Link to="/componentes" className={styles.textLink}>
-            Ver componentes <ArrowRight aria-hidden="true" size={20} />
-          </Link>
-        </div>
-      </section>
-    </>
-  );
+  return <LandingPage />;
 }
 
 function Gallery() {
@@ -240,12 +191,11 @@ function Gallery() {
               value={name}
               onChange={(event) => setName(event.target.value)}
             />
-            <TextField
+            <DatePicker
               id="task-date"
               label="Prazo"
-              type="date"
               value={due}
-              onChange={(event) => setDue(event.target.value)}
+              onChange={setDue}
               error={due ? undefined : "Escolha uma data para o prazo."}
             />
             <Select
@@ -341,30 +291,25 @@ function Gallery() {
 }
 
 function Access() {
+  const [signupEnabled, setSignupEnabled] = useState(false);
+  useEffect(() => {
+    void fetch("/api/public/config")
+      .then((response) => response.ok ? response.json() as Promise<{ signupEnabled?: boolean }> : undefined)
+      .then((value) => setSignupEnabled(value?.signupEnabled === true))
+      .catch(() => undefined);
+  }, []);
   return (
     <section className={styles.access} aria-labelledby="access-title">
       <div>
         <span className={styles.eyebrow}>ACESSO / PRIMEIRA FASE</span>
-        <h1 id="access-title">
-          A porta abre
-          <br />
-          <em>com convite.</em>
-        </h1>
-        <p>
-          O cadastro público ainda está fechado. Nesta fase, só entram pessoas
-          convidadas ou com e-mail liberado pela equipe.
-        </p>
-        <p>
-          Convites de moradores dão acesso à casa indicada. Quem recebeu uma
-          liberação da equipe pode criar uma casa.
-        </p>
+          <h1 id="access-title">{signupEnabled ? <>A porta está <em>aberta.</em></> : <>A porta abre<br /><em>com convite.</em></>}</h1>
+        <p>{signupEnabled ? "O cadastro público está aberto. Crie sua conta para organizar os combinados da casa." : "O cadastro público ainda está fechado. Nesta fase, só entram pessoas convidadas ou com e-mail liberado pela equipe."}</p>
+        {!signupEnabled && <p>Convites de moradores dão acesso à casa indicada. Quem recebeu uma liberação da equipe pode criar uma casa.</p>}
         <div className={styles.accessLinks}>
-          <Link to="/entrar" className={styles.heroLink}>
-            Entrar <ArrowRight size={18} aria-hidden="true" />
-          </Link>
-          <Link to="/criar-conta" className={styles.accessTextLink}>
-            Tenho convite ou e-mail liberado
-          </Link>
+          {signupEnabled ? <Link to="/criar-conta" className={styles.heroLink}>Criar conta <ArrowRight size={18} aria-hidden="true" /></Link> : <>
+            <Link to="/entrar" className={styles.heroLink}>Entrar <ArrowRight size={18} aria-hidden="true" /></Link>
+            <Link to="/criar-conta" className={styles.accessTextLink}>Tenho convite ou e-mail liberado</Link>
+          </>}
           <Link to="/" className={styles.accessTextLink}>
             Voltar ao início
           </Link>
@@ -391,16 +336,17 @@ function PrivacyNotice() {
           <li><strong>Conta:</strong> nome, e-mail, senha protegida por hash, confirmação de e-mail e registros de sessão.</li>
           <li><strong>Casa:</strong> nome da casa, moradores e papéis, tarefas e recorrências, responsáveis, ocorrências, lista de compras e convites. Os moradores da casa veem os dados compartilhados nela.</li>
           <li><strong>Uso e segurança:</strong> eventos necessários para métricas, operação e auditoria administrativa, como horário de acesso e alterações identificadas por tipo e IDs; ações de autorização também podem registrar o e-mail afetado.</li>
+          <li><strong>Lista de espera:</strong> se você optar por entrar, guardamos o e-mail ou WhatsApp escolhido, o canal autorizado, a data e a versão da autorização e as tags de campanha da página. Não pedimos nome, não enviamos mensagens nesta fase e não associamos seu contato a uma conta individualmente.</li>
           <li><strong>Lembretes:</strong> horário e preferência de notificação, além da assinatura técnica do dispositivo. Um push pode mostrar os títulos das tarefas atribuídas à pessoa.</li>
           <li><strong>Armazenamento no aparelho:</strong> a PWA mantém em IndexedDB uma sessão em cache e uma cópia local do estado da casa e de alterações pendentes de compras, para consulta e uso offline. Ao sair conectado, o app tenta limpar essa cópia; ela também pode ser apagada nas configurações do navegador.</li>
         </ul>
 
         <h2>Finalidades e compartilhamento</h2>
-        <p>Usamos os dados para autenticar contas, permitir o uso compartilhado da casa, sincronizar tarefas e compras, enviar convites e e-mails de acesso, entregar lembretes escolhidos pela pessoa, proteger o serviço e produzir métricas administrativas sem títulos de tarefas ou itens de compras.</p>
+        <p>Usamos os dados para autenticar contas, permitir o uso compartilhado da casa, sincronizar tarefas e compras, enviar convites e e-mails de acesso, entregar lembretes escolhidos pela pessoa, proteger o serviço e produzir métricas administrativas sem títulos de tarefas ou itens de compras. Na lista de espera, o contato é usado somente para avisar sobre a abertura pelo canal escolhido. As métricas da landing contam carregamentos e inícios do formulário, sem identificador de visitante, cookie analítico, endereço IP como dado de produto ou gravação de sessão.</p>
         <p>O conteúdo doméstico é compartilhado com os membros da mesma casa. E-mails transacionais são enviados pelo Gmail. Notificações passam pelos serviços de push do navegador e do sistema operacional. O serviço usa PostgreSQL em um servidor configurado pela ForjaCorp.</p>
 
         <h2>Retenção e exclusão</h2>
-        <p>Dados da conta e da casa permanecem enquanto a conta e os registros compartilhados existirem. Eventos de uso são removidos após 90 dias; auditorias administrativas, após 12 meses; cópias de backup, em até 30 dias. O histórico doméstico pode ser mantido de forma anonimizada quando outros moradores ainda dependem dele. Encerrar uma conta também remove suas sessões e assinaturas de push.</p>
+        <p>Dados da conta e da casa permanecem enquanto a conta e os registros compartilhados existirem. Contatos da lista de espera são apagados 90 dias após a abertura pública; se o lançamento não ocorrer, permanecem até essa data ser definida e você pode pedir a remoção antes. Eventos de uso são removidos após 90 dias; auditorias administrativas, após 12 meses; cópias de backup, em até 30 dias. O histórico doméstico pode ser mantido de forma anonimizada quando outros moradores ainda dependem dele. Encerrar uma conta também remove suas sessões e assinaturas de push.</p>
         <p>O perfil permite baixar uma cópia dos dados e iniciar a exclusão da conta. Uma conta que também tenha acesso administrativo precisa ter esse papel removido antes da exclusão completa.</p>
 
         <h2>Seus direitos</h2>
@@ -467,8 +413,10 @@ function ThemeActions({
 
 const publicMenuItems: MobileMenuItem[] = [
   { to: "/", label: "Início", end: true },
-  { to: "/componentes", label: "Componentes" },
-  { to: "/acesso", label: "Acesso" },
+  { to: "/#rotinas", label: "Tarefas e rotinas" },
+  { to: "/#compras", label: "Compras" },
+  { to: "/#lista-de-espera", label: "Lista de espera" },
+  ...(import.meta.env.DEV ? [{ to: "/componentes", label: "Componentes" }] : []),
   ...(import.meta.env.DEV ? [{ to: "/admin", label: "Admin demo" }] : []),
 ];
 
@@ -483,6 +431,23 @@ function PublicLinks() {
 export function App() {
   const { preference, theme, change } = useTheme();
   const location = useLocation();
+  useEffect(() => {
+    if (!location.hash) return;
+    let targetId: string;
+    try {
+      targetId = decodeURIComponent(location.hash.slice(1));
+    } catch {
+      return;
+    }
+    if (!targetId) return;
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById(targetId)?.scrollIntoView({
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",
+        block: "start",
+      });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [location.hash, location.pathname]);
   const [showStartupSplash, setShowStartupSplash] = useState(
     () => !window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches,
   );
@@ -567,7 +532,7 @@ export function App() {
       <main id="conteudo">
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/componentes" element={<Gallery />} />
+          <Route path="/componentes" element={import.meta.env.DEV ? <Gallery /> : <Navigate to="/" replace />} />
           <Route path="/acesso" element={<Access />} />
           <Route path="/privacidade" element={<PrivacyNotice />} />
           {(DevAuth || ProdAuth) && (

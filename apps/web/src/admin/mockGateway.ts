@@ -9,6 +9,8 @@ import type {
   HouseholdRole,
   Invitation,
   InvitationPreview,
+  WaitlistAnalytics,
+  WaitlistEntry,
   UserStatus,
 } from "./contracts";
 import { makeHouseData, type HouseData } from "../resident/ResidentModel";
@@ -77,6 +79,7 @@ export function createDemoData(): DataSet {
       id: houseId,
       name: `Casa ${places[index % places.length]} ${Math.floor(index / places.length) || ""}`.trim(),
       createdAt: stamp(age),
+      firstValueAt: index % 4 ? stamp(age - 1) : undefined,
     });
     const count = index % 5 === 0 ? 1 : index % 3 === 0 ? 3 : 2;
     for (let person = 0; person < count; person++) {
@@ -255,6 +258,11 @@ export function createDemoData(): DataSet {
 
 export function createDemoGateway(data = createDemoData()): AdminGateway {
   const pause = () => new Promise<void>((resolve) => setTimeout(resolve, 90));
+  const demoWaitlist: WaitlistEntry[] = [
+    { id: "lead-demo-1", channel: "email", contact: "julia@example.test", createdAt: stamp(1), utmSource: "instagram", utmCampaign: "casa-compartilhada" },
+    { id: "lead-demo-2", channel: "whatsapp", contact: "+5511999990001", createdAt: stamp(2), utmSource: "instagram", utmCampaign: "casa-compartilhada" },
+    { id: "lead-demo-3", channel: "email", contact: "caio@example.test", createdAt: stamp(4), utmSource: "newsletter", utmCampaign: "rotina-leve" },
+  ];
   const findUser = (userId: string) => {
     const user = data.users.find(
       (item) => item.id === userId && item.status !== "excluido",
@@ -583,6 +591,50 @@ export function createDemoGateway(data = createDemoData()): AdminGateway {
     async analytics(filter) {
       await pause();
       return calculateAnalytics(data, filter);
+    },
+    async waitlistAnalytics(period): Promise<WaitlistAnalytics> {
+      await pause();
+      const days = Array.from({ length: period + 1 }, (_, index) => ({
+        date: new Date(Date.now() - (period - index) * DAY).toISOString().slice(0, 10),
+        pageLoads: index === period - 1 ? 22 : index === period ? 18 : 4,
+        formStarts: index === period - 1 ? 9 : index === period ? 7 : 1,
+        signups: index === period - 1 ? 3 : index === period ? 2 : 0,
+      }));
+      return {
+        period,
+        signupEnabled: false,
+        from: stamp(period),
+        to: new Date().toISOString(),
+        pageLoads: 212,
+        formStarts: 76,
+        signups: 24,
+        conversion: 24 / 212,
+        byChannel: [{ channel: "email", count: 16 }, { channel: "whatsapp", count: 8 }],
+        byCampaign: [
+          { campaign: "casa-compartilhada", pageLoads: 106, formStarts: 43, signups: 15 },
+          { campaign: "rotina-leve", pageLoads: 64, formStarts: 21, signups: 6 },
+          { campaign: "Sem campanha", pageLoads: 42, formStarts: 12, signups: 3 },
+        ],
+        daily: days,
+        publicFunnel: [],
+      };
+    },
+    async waitlist({ search, channel, campaign, page }) {
+      await pause();
+      const term = search.trim().toLocaleLowerCase("pt-BR");
+      const filtered = demoWaitlist.filter((entry) =>
+        (channel === "todos" || entry.channel === channel) &&
+        (!campaign || entry.utmCampaign === campaign) &&
+        (!term || [entry.contact, entry.utmSource, entry.utmMedium, entry.utmCampaign].some((value) => value?.toLocaleLowerCase("pt-BR").includes(term))),
+      );
+      const pageSize = 10;
+      return { items: filtered.slice((page - 1) * pageSize, page * pageSize), total: filtered.length, page, pages: Math.max(1, Math.ceil(filtered.length / pageSize)) };
+    },
+    async deleteWaitlistEntry(entryId) {
+      await pause();
+      const index = demoWaitlist.findIndex((entry) => entry.id === entryId);
+      if (index < 0) throw new DemoError("nao_encontrado", "Contato não encontrado.");
+      demoWaitlist.splice(index, 1);
     },
   };
 }
@@ -913,6 +965,11 @@ export function createDemoAuthGateway(data: DataSet): AuthGateway {
       const houseId = id("casa");
       const now = new Date().toISOString();
       data.households.unshift({ id: houseId, name, createdAt: now });
+      const owner = data.users.find((user) => user.id === userId)!;
+      houseStates.set(houseId, {
+        version: 1,
+        data: { members: [{ id: owner.id, name: owner.name, email: owner.email, role: "responsavel" }], tasks: [], items: [], invites: [] },
+      });
       data.memberships.push({
         userId,
         householdId: houseId,

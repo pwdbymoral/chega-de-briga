@@ -1,4 +1,4 @@
-import type { AdminGateway, Analytics, AnalyticsFilter, Household, Invitation, UserPage, UserQuery, UserStatus, AllowEntry, HouseholdRole } from "./contracts";
+import type { AdminGateway, Analytics, AnalyticsFilter, Household, Invitation, UserPage, UserQuery, UserStatus, AllowEntry, HouseholdRole, WaitlistQuery, WaitlistPage, WaitlistAnalytics } from "./contracts";
 import { api, ApiError, json } from "../api/http";
 
 export const httpAdminGateway: AdminGateway = {
@@ -36,4 +36,12 @@ export const httpAdminGateway: AdminGateway = {
     const params = new URLSearchParams({ period: String(filter.period), source: filter.source, size: filter.size });
     return api(`/api/admin/analytics?${params}`);
   },
+  waitlistAnalytics(period: 7 | 30 | 90): Promise<WaitlistAnalytics> {
+    return api(`/api/admin/waitlist/analytics?period=${period}`);
+  },
+  waitlist(query: WaitlistQuery): Promise<WaitlistPage> {
+    const params = new URLSearchParams({ search: query.search, channel: query.channel, campaign: query.campaign, page: String(query.page), page_size: "10" });
+    return api(`/api/admin/waitlist?${params}`);
+  },
+  async deleteWaitlistEntry(id) { await api(`/api/admin/waitlist/${encodeURIComponent(id)}`, json("DELETE")); },
 };

@@ -4,18 +4,22 @@ PWA para organizar tarefas recorrentes e compras compartilhadas de uma casa. O r
 
 ## Desenvolvimento local
 
-Requer Node.js 24 e pnpm 12.6.0.
+Requer Node.js 24, pnpm 12.6.0 e Docker Compose para o fluxo integrado.
 
 ```bash
 pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-`pnpm dev` abre o protótipo local com gateways de demonstração. Ele não exige banco e não envia e-mails. Para executar a API, configure as variáveis documentadas em [`docs/backend-deployment-contract-v1.md`](./docs/backend-deployment-contract-v1.md), disponibilize PostgreSQL e rode:
+`pnpm dev` sobe um PostgreSQL local isolado, aplica as migrações e inicia a API e o Vite com `/api` encaminhado para a API. A interface fica em `http://127.0.0.1:5173`, o cadastro público permanece fechado e nenhuma mensagem é enviada. Use contatos sintéticos terminados em `.test`. Para abrir somente a interface com gateways de demonstração, sem banco ou API, rode `pnpm dev:demo`.
+
+Para executar a API manualmente, configure as variáveis documentadas em [`docs/backend-deployment-contract-v1.md`](./docs/backend-deployment-contract-v1.md), disponibilize PostgreSQL e rode:
 
 ```bash
 pnpm api:dev
 ```
+
+Para parar o banco local, rode `docker compose -f docker-compose.local.yml down`; o volume de desenvolvimento é preservado.
 
 As rotas `/admin` e `/entrar` usam dados simulados em desenvolvimento e serviços reais no build de produção. Não use credenciais demo nem fixtures para validar produção.
 
@@ -34,7 +38,7 @@ O build gera a PWA em `apps/web/dist` e a API em `apps/api/dist`. O [`Dockerfile
 - [`docs/admin-backend-contract.md`](./docs/admin-backend-contract.md): dados e operações do console administrativo.
 - [`docs/backend-deployment-contract-v1.md`](./docs/backend-deployment-contract-v1.md): autenticação, persistência, privacidade operacional, variáveis e deploy.
 - [`design-system/README.md`](./design-system/README.md) e [`design-system/componentes.md`](./design-system/componentes.md): regras visuais e escolha de componentes.
-- A rota `/componentes` na PWA mostra a galeria interativa da biblioteca.
+- A rota `/componentes` mostra a galeria interativa da biblioteca somente no desenvolvimento.
 
 O manual de marca em `design-system/index.html` também pode ser aberto diretamente, sem build.
 

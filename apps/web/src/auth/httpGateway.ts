@@ -1,4 +1,4 @@
-import type { AuthGateway, AuthSession, InvitationPreview, ResidentGateway, TaskSyncEvent } from "../admin/contracts";
+import type { AuthGateway, AuthSession, InvitationPreview, ProductSyncEvent, ResidentGateway } from "../admin/contracts";
 import { api, ApiError, json } from "../api/http";
 import { clearCachedHouses } from "../resident/localCache";
 
@@ -6,7 +6,7 @@ export const residentGateway: ResidentGateway = {
   loadHousehold(id) {
     return api(`/api/households/${encodeURIComponent(id)}/state`);
   },
-  saveHousehold(id, version, data, events: TaskSyncEvent[] = []) {
+  saveHousehold(id, version, data, events: ProductSyncEvent[] = []) {
     return api(`/api/households/${encodeURIComponent(id)}/state`, json("PUT", { version, data, events }));
   },
   async updateProfileName(name) {

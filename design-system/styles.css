@@ -234,6 +234,12 @@ section[id] { scroll-margin-top: 7rem; }
 .handoff-card h3 { margin: 1.2rem 0 0.6rem; font: 900 1.65rem var(--font-display); letter-spacing: -0.03em; }
 .handoff-card p { max-width: 48ch; color: var(--color-text-muted); }
 .handoff-card p a { display: inline-flex; align-items: center; min-width: 48px; min-height: 48px; vertical-align: middle; }
+.product-preview-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.25rem; }
+.product-preview-grid figure { min-width: 0; overflow: hidden; border: 2px solid var(--color-text); border-radius: var(--radius-card); background: var(--color-surface); box-shadow: 6px 6px 0 var(--color-shadow); }
+.product-preview-grid img { width: 100%; max-height: 620px; object-fit: cover; object-position: top; }
+.product-preview-grid figcaption { display: grid; gap: 0.2rem; padding: 1rem 1.2rem; border-top: 2px solid var(--color-text); }
+.product-preview-grid figcaption strong { font: 900 1.05rem/1.1 var(--font-display); }
+.product-preview-grid figcaption small { color: var(--color-text-muted); font-size: var(--type-sm); }
 .sources { display: flex; flex-wrap: wrap; gap: 0.7rem 1.1rem; align-items: center; margin-top: 2.8rem; color: var(--color-text-muted); font-size: 0.75rem; }
 .sources .eyebrow { width: 100%; }
 .sources a { display: inline-flex; align-items: center; min-height: 48px; padding-inline: 0.2rem; color: var(--color-primary); }
@@ -308,7 +314,7 @@ section[id] { scroll-margin-top: 7rem; }
   .section-heading h2 em { font-size: 0.68em; }
   .concept-strip { grid-template-columns: 1fr; margin-top: 2.5rem; }
   .concept-pills { flex-wrap: wrap; }
-  .logo-grid, .rule-grid, .elements-grid, .component-grid, .voice-grid, .handoff-grid { grid-template-columns: 1fr; }
+  .logo-grid, .rule-grid, .elements-grid, .component-grid, .voice-grid, .handoff-grid, .product-preview-grid { grid-template-columns: 1fr; }
   .logo-card-wide, .sticker-board { grid-column: auto; }
   .logo-card-wide .logo-stage { min-height: 220px; }
   .logo-card-wide .logo-stage img { max-width: 94%; }

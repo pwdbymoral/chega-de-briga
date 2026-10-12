@@ -335,6 +335,14 @@
 .filterPanel .selectField {
   flex: 1 1 160px;
 }
+.waitlistFilters { display: grid; gap: 1rem; margin-top: 1.2rem; }
+.waitlistFilterForm { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(150px, 0.65fr) minmax(180px, 1fr) auto; align-items: end; gap: 0.75rem; }
+.waitlistFilterForm > button { min-height: 48px; }
+.channelStats { display: grid; gap: 0.55rem; margin-block: 1rem; }
+.channelStats > div { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 54px; padding: 0.65rem 0.8rem; border: 1px solid var(--color-border-soft); border-radius: var(--radius-control); background: var(--color-surface-raised); }
+.channelStats span { display: inline-flex; align-items: center; gap: 0.35rem; font-weight: 800; }
+.channelStats svg { color: var(--color-primary); }
+.channelStats strong { font: 900 1.4rem/1 var(--font-display); }
 .analyticsFilters {
   margin: -0.7rem 0 1.4rem;
 }
@@ -889,6 +897,9 @@
     gap: 1rem;
     margin-bottom: 2rem;
   }
+  .waitlistFilterForm { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .waitlistFilterForm > :first-child,
+  .waitlistFilterForm > button { grid-column: 1 / -1; }
   .loginTop {
     width: min(100% - 1rem, 1250px);
     margin-bottom: 0.65rem;
@@ -930,6 +941,8 @@
   .content {
     padding: 0.9rem;
   }
+  .waitlistFilterForm { grid-template-columns: minmax(0, 1fr); }
+  .waitlistFilterForm > * { grid-column: 1 !important; }
   .accessActions,
   .twoColumns .actions {
     display: grid;

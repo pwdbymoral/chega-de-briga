@@ -55,7 +55,15 @@ export function MobileMenu({
       >
         <Menu size={20} aria-hidden="true" /> <span>Menu</span>
       </Button>
-      <dialog ref={dialog} id={titleId} className={styles.dialog} aria-labelledby={`${titleId}-title`}>
+      <dialog
+        ref={dialog}
+        id={titleId}
+        className={styles.dialog}
+        aria-labelledby={`${titleId}-title`}
+        onClick={(event) => {
+          if (event.target === event.currentTarget) dialog.current?.close();
+        }}
+      >
         <div className={styles.sheet}>
           <div className={styles.intro}>
             <div className={styles.introTop}>

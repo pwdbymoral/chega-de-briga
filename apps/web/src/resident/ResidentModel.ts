@@ -33,6 +33,7 @@ export type HouseData = {
   tasks: ResidentTask[];
   items: ShoppingItem[];
   invites: HouseInvite[];
+  firstValueAt?: string;
 };
 export const weekDays = [
   { value: 0, label: "Dom" },
@@ -135,15 +136,14 @@ export function nextOccurrence(task: ResidentTask) {
     return candidate;
   }
   if (task.repeat === "monthly") {
-    const base = task.dueDate ? fromDateKey(task.dueDate) : fromDateKey(today);
-    const anchor = task.anchorDay || base.getDate();
-    const minimum = task.dueDate && task.dueDate > today ? task.dueDate : today;
-    for (let month = 1; month <= 24; month += 1) {
+    const base = fromDateKey(after);
+    const anchor = task.anchorDay || (task.dueDate ? fromDateKey(task.dueDate).getDate() : base.getDate());
+    for (let month = 0; month <= 12; month += 1) {
       const candidateMonth = new Date(base.getFullYear(), base.getMonth() + month, 1, 12);
       const lastDay = new Date(candidateMonth.getFullYear(), candidateMonth.getMonth() + 1, 0, 12).getDate();
       candidateMonth.setDate(Math.min(anchor, lastDay));
       const candidate = toDateKey(candidateMonth);
-      if (candidate > minimum) return candidate;
+      if (candidate > after) return candidate;
     }
   }
   return addDays(today, 1);

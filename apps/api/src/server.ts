@@ -23,6 +23,7 @@ import {
   verifyPassword,
   verifyTotp,
 } from "./security.js";
+import { campaignTag, normalizeWaitlistContact, waitlistConsentVersion } from "./waitlist.js";
 
 type UserRow = { id: string; name: string; email: string };
 type AdminRow = { id: string; email: string };
@@ -30,6 +31,7 @@ type Body = Record<string, unknown>;
 
 const appOrigin = new URL(process.env.APP_ORIGIN ?? "http://localhost:5173").origin;
 const appStage = process.env.APP_STAGE ?? "production";
+const publicSignupEnabled = process.env.PUBLIC_SIGNUP_ENABLED === "true";
 if (!["production", "preview"].includes(appStage)) throw new Error("APP_STAGE must be production or preview");
 if (process.env.NODE_ENV === "production") {
   const required = ["APP_ORIGIN", "DATABASE_URL", "ENCRYPTION_KEY", ...(appStage === "production" ? ["SMTP_USER", "SMTP_APP_PASSWORD", "VAPID_PUBLIC_KEY", "VAPID_PRIVATE_KEY"] : [])];
@@ -198,7 +200,7 @@ async function sessionPayload(userId: string) {
       householdName: row.household_name as string,
       role: row.role as "responsavel" | "morador",
     })),
-    canCreateHouse: first.source === "lista" || first.source === "convite_admin",
+    canCreateHouse: first.source === "lista" || first.source === "convite_admin" || first.source === "publico",
   };
 }
 
@@ -562,6 +564,188 @@ app.delete("/api/admin/session", { preHandler: adminSession }, async (request, r
   return { ok: true };
 });
 
+function campaignColumns(body: Body) {
+  return [campaignTag(body.utm_source), campaignTag(body.utm_medium), campaignTag(body.utm_campaign)];
+}
+
+app.get("/api/public/config", async () => ({ signupEnabled: publicSignupEnabled }));
+
+app.post("/api/public/landing-events", { config: { rateLimit: { max: 60, timeWindow: "1 minute" } } }, async (request, reply) => {
+  const body = bodyOf(request);
+  const event = body.event === "view" ? "landing_view" : body.event === "form_start" ? "form_start" : undefined;
+  if (!event || body.channel !== undefined && !["email", "whatsapp"].includes(String(body.channel))) {
+    return bad(reply, 422, "validation", "Evento da página inválido.");
+  }
+  await pool.query(
+    "INSERT INTO public_landing_events(id,event_type,channel,utm_source,utm_medium,utm_campaign) VALUES($1,$2,$3,$4,$5,$6)",
+    [id("landing"), event, body.channel ?? null, ...campaignColumns(body)],
+  );
+  return reply.code(202).send({ ok: true });
+});
+
+app.post("/api/waitlist", { config: { rateLimit: { max: 5, timeWindow: "1 hour" } } }, async (request, reply) => {
+  const body = bodyOf(request);
+  if (text(body, "companyWebsite").trim()) return reply.code(202).send({ ok: true });
+  if (publicSignupEnabled) return bad(reply, 409, "signup_open", "O cadastro público já está aberto.");
+  const channel = body.channel;
+  const rawContact = text(body, "contact").trim();
+  if (channel !== "email" && channel !== "whatsapp") {
+    return bad(reply, 422, "validation", "Escolha e-mail ou WhatsApp.");
+  }
+  const contact = normalizeWaitlistContact(channel, rawContact);
+  if (!contact) return bad(reply, 422, "validation", channel === "email" ? "Informe um e-mail válido." : "Informe um WhatsApp com DDD e código do país, quando necessário.");
+  if (body.consent !== true || body.consentVersion !== waitlistConsentVersion) return bad(reply, 422, "validation", "Autorize o aviso pelo canal escolhido para continuar.");
+  const tags = campaignColumns(body);
+  await withTransaction(async (client) => {
+    const inserted = await client.query(
+      `INSERT INTO waitlist_contacts(id,channel,contact,consent_at,consent_version,utm_source,utm_medium,utm_campaign)
+       VALUES($1,$2,$3,now(),$4,$5,$6,$7) ON CONFLICT(channel,contact) DO NOTHING RETURNING id`,
+      [id("waitlist"), channel, contact, waitlistConsentVersion, ...tags],
+    );
+    if (inserted.rowCount) {
+      await client.query(
+        "INSERT INTO public_landing_events(id,event_type,channel,utm_source,utm_medium,utm_campaign) VALUES($1,'waitlist_signup',$2,$3,$4,$5)",
+        [id("landing"), channel, ...tags],
+      );
+    }
+  });
+  return reply.code(202).send({ ok: true });
+});
+
+app.get("/api/admin/waitlist/analytics", { preHandler: adminSession }, async (request, reply) => {
+  const query = request.query as { period?: string };
+  const period = [7, 30, 90].includes(Number(query.period)) ? Number(query.period) : 30;
+  const [summary, channels, campaigns, grouped] = await Promise.all([
+    pool.query(
+      `SELECT count(*) FILTER (WHERE event_type='landing_view')::int AS page_loads,
+        count(*) FILTER (WHERE event_type='form_start')::int AS form_starts,
+        count(*) FILTER (WHERE event_type='waitlist_signup')::int AS signups
+       FROM public_landing_events WHERE occurred_at>=now()-($1::int*interval '1 day')`, [period],
+    ),
+    pool.query(
+      `SELECT channel,count(*)::int AS count FROM public_landing_events
+       WHERE event_type='waitlist_signup' AND occurred_at>=now()-($1::int*interval '1 day') AND channel IS NOT NULL
+       GROUP BY channel ORDER BY channel`, [period],
+    ),
+    pool.query(
+      `SELECT coalesce(utm_campaign,'') AS campaign,
+        count(*) FILTER (WHERE event_type='landing_view')::int AS page_loads,
+        count(*) FILTER (WHERE event_type='form_start')::int AS form_starts,
+        count(*) FILTER (WHERE event_type='waitlist_signup')::int AS signups
+       FROM public_landing_events WHERE occurred_at>=now()-($1::int*interval '1 day')
+       GROUP BY utm_campaign ORDER BY signups DESC,page_loads DESC,campaign LIMIT 50`, [period],
+    ),
+    pool.query(
+      `SELECT date_trunc('day',occurred_at AT TIME ZONE 'UTC')::date::text AS date,
+        count(*) FILTER (WHERE event_type='landing_view')::int AS page_loads,
+        count(*) FILTER (WHERE event_type='form_start')::int AS form_starts,
+        count(*) FILTER (WHERE event_type='waitlist_signup')::int AS signups
+       FROM public_landing_events WHERE occurred_at>=now()-($1::int*interval '1 day')
+       GROUP BY 1 ORDER BY 1`, [period],
+    ),
+  ]);
+  const totals = summary.rows[0]!;
+  const publicRows = publicSignupEnabled ? await pool.query(
+    `WITH bounds AS (
+      SELECT greatest(now()-(($1::int+7)*interval '1 day'), coalesce((SELECT value::timestamptz FROM app_settings WHERE key='public_signup_launched_at'),now())) AS from_at,
+        now()-interval '7 days' AS mature_to
+     ), public_accounts AS (
+      SELECT u.id FROM users u,bounds b WHERE u.source='publico' AND u.created_at>=b.from_at AND u.created_at<=b.mature_to
+     ), public_houses AS (
+      SELECT h.id,
+        (h.first_value_at>=h.created_at AND h.first_value_at<=h.created_at+interval '7 days') AS activated
+      FROM households h JOIN public_accounts u ON u.id=h.created_by_user_id,bounds b
+      WHERE h.created_at>=b.from_at AND h.created_at<=b.mature_to
+     )
+     SELECT
+      (SELECT count(*)::int FROM public_landing_events e,bounds b WHERE e.event_type='landing_view' AND e.occurred_at>=b.from_at AND e.occurred_at<=b.mature_to) AS page_loads,
+      (SELECT count(*)::int FROM public_accounts) AS accounts,
+      (SELECT count(*)::int FROM public_houses) AS houses,
+      (SELECT count(*)::int FROM public_houses WHERE activated) AS first_value`, [period],
+  ) : undefined;
+  const dailyByDate = new Map(grouped.rows.map((row) => [row.date as string, row]));
+  const daily = Array.from({ length: period + 1 }, (_, index) => {
+    const date = new Date(Date.now() - (period - index) * 86_400_000).toISOString().slice(0, 10);
+    const row = dailyByDate.get(date);
+    return { date, pageLoads: row?.page_loads ?? 0, formStarts: row?.form_starts ?? 0, signups: row?.signups ?? 0 };
+  });
+  const pageLoads = Number(totals.page_loads ?? 0);
+  const signups = Number(totals.signups ?? 0);
+  return reply.send({
+    period,
+    signupEnabled: publicSignupEnabled,
+    from: new Date(Date.now() - period * 86_400_000).toISOString(),
+    to: new Date().toISOString(),
+    pageLoads,
+    formStarts: Number(totals.form_starts ?? 0),
+    signups,
+    conversion: pageLoads ? signups / pageLoads : 0,
+    byChannel: channels.rows.map((row) => ({ channel: row.channel, count: row.count })),
+    byCampaign: campaigns.rows.map((row) => ({ campaign: row.campaign || "Sem campanha", pageLoads: row.page_loads, formStarts: row.form_starts, signups: row.signups })),
+    daily,
+    publicFunnel: publicRows ? [
+      { label: "Landing carregada", count: Number(publicRows.rows[0]?.page_loads ?? 0), denominator: Number(publicRows.rows[0]?.page_loads ?? 0) },
+      { label: "Conta pública criada", count: Number(publicRows.rows[0]?.accounts ?? 0), denominator: Number(publicRows.rows[0]?.page_loads ?? 0) },
+      { label: "Casa criada", count: Number(publicRows.rows[0]?.houses ?? 0), denominator: Number(publicRows.rows[0]?.accounts ?? 0) },
+      { label: "Primeiro valor em 7 dias", count: Number(publicRows.rows[0]?.first_value ?? 0), denominator: Number(publicRows.rows[0]?.houses ?? 0) },
+    ] : [],
+  });
+});
+
+app.get("/api/admin/waitlist", { preHandler: adminSession }, async (request, reply) => {
+  const query = request.query as { search?: string; channel?: string; campaign?: string; page?: string; page_size?: string };
+  const page = Math.min(1_000_000, Math.max(1, Number.parseInt(query.page ?? "1", 10) || 1));
+  const pageSize = Math.min(50, Math.max(1, Number.parseInt(query.page_size ?? "20", 10) || 20));
+  const conditions: string[] = [];
+  const values: unknown[] = [];
+  const add = (value: unknown) => { values.push(value); return `$${values.length}`; };
+  if (query.channel && query.channel !== "todos") {
+    if (!["email", "whatsapp"].includes(query.channel)) return bad(reply, 422, "validation", "Canal inválido.");
+    conditions.push(`channel=${add(query.channel)}`);
+  }
+  if (query.campaign?.trim()) {
+    const campaign = campaignTag(query.campaign);
+    if (!campaign) return bad(reply, 422, "validation", "Campanha inválida.");
+    conditions.push(`utm_campaign=${add(campaign)}`);
+  }
+  if (query.search?.trim()) {
+    const term = `%${query.search.trim().replace(/[\\%_]/g, "\\$&").slice(0, 120)}%`;
+    const parameter = add(term);
+    conditions.push(`(contact ILIKE ${parameter} OR coalesce(utm_source,'') ILIKE ${parameter} OR coalesce(utm_medium,'') ILIKE ${parameter} OR coalesce(utm_campaign,'') ILIKE ${parameter})`);
+  }
+  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+  const [count, entries] = await Promise.all([
+    pool.query(`SELECT count(*)::int AS total FROM waitlist_contacts ${where}`, values),
+    pool.query(
+      `SELECT id,channel,contact,created_at,utm_source,utm_medium,utm_campaign FROM waitlist_contacts ${where}
+       ORDER BY created_at DESC,id DESC LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}`,
+      values,
+    ),
+  ]);
+  const total = Number(count.rows[0]?.total ?? 0);
+  return {
+    items: entries.rows.map((row) => ({ id: row.id, channel: row.channel, contact: row.contact, createdAt: new Date(row.created_at).toISOString(), utmSource: row.utm_source ?? undefined, utmMedium: row.utm_medium ?? undefined, utmCampaign: row.utm_campaign ?? undefined })),
+    total,
+    page,
+    pages: Math.max(1, Math.ceil(total / pageSize)),
+  };
+});
+
+app.delete("/api/admin/waitlist/:id", { preHandler: adminSession }, async (request, reply) => {
+  const { id: contactId } = request.params as { id: string };
+  const removed = await withTransaction(async (client) => {
+    const result = await client.query("DELETE FROM waitlist_contacts WHERE id=$1 RETURNING id", [contactId]);
+    if (!result.rowCount) return false;
+    await client.query(
+      "INSERT INTO admin_audit_events(id,actor_admin_id,action,target_type,target_id,request_id) VALUES($1,$2,'waitlist.contact_deleted','waitlist_contact',$3,$4)",
+      [id("audit"), request.admin!.id, contactId, request.id],
+    );
+    return true;
+  });
+  if (!removed) return bad(reply, 404, "not_found", "Contato não encontrado.");
+  return { ok: true };
+});
+
 app.post("/api/auth/registrations", { config: { rateLimit: { max: 5, timeWindow: "1 hour" } } }, async (request, reply) => {
   const body = bodyOf(request);
   const name = text(body, "name").trim();
@@ -588,6 +772,10 @@ app.post("/api/auth/registrations", { config: { rateLimit: { max: 5, timeWindow:
       );
       grant = invitation.rows[0] as typeof grant;
       if (!grant) return null;
+    } else if (publicSignupEnabled) {
+      const accessId = id("access");
+      await client.query("INSERT INTO access_grants(id,email,source) VALUES($1,$2,'publico')", [accessId, email]);
+      grant = { id: accessId, source: "publico", household_id: null };
     } else {
       const allowed = await client.query(
         `SELECT g.id,'lista' AS source,NULL::text AS household_id FROM access_grants g
@@ -950,10 +1138,10 @@ app.post("/api/households", { preHandler: residentSession }, async (request, rep
   try { new Intl.DateTimeFormat("pt-BR", { timeZone: timezone }); } catch { return bad(reply, 422, "validation", "Fuso horário inválido."); }
   const user = request.resident!;
   const permission = await pool.query("SELECT source FROM users WHERE id=$1", [user.id]);
-  if (!permission.rowCount || !["lista", "convite_admin"].includes(permission.rows[0]!.source as string)) return bad(reply, 403, "forbidden", "Esta conta não pode criar uma casa.");
+  if (!permission.rowCount || !["lista", "convite_admin", "publico"].includes(permission.rows[0]!.source as string)) return bad(reply, 403, "forbidden", "Esta conta não pode criar uma casa.");
   const householdId = id("house");
   await withTransaction(async (client) => {
-    await client.query("INSERT INTO households(id,name,timezone) VALUES($1,$2,$3)", [householdId, name, timezone]);
+    await client.query("INSERT INTO households(id,name,timezone,created_by_user_id) VALUES($1,$2,$3,$4)", [householdId, name, timezone, user.id]);
     await client.query("INSERT INTO memberships(user_id,household_id,role) VALUES($1,$2,'responsavel')", [user.id, householdId]);
     await client.query("INSERT INTO household_state(household_id) VALUES($1)", [householdId]);
     await client.query("INSERT INTO activity_events(id,event_type,user_id,household_id) VALUES($1,'entrada_casa',$2,$3)", [id("event"), user.id, householdId]);
@@ -965,7 +1153,7 @@ app.get("/api/households/:id/state", { preHandler: residentSession }, async (req
   const householdId = (request.params as { id: string }).id;
   if (!(await requireHousehold(request, reply, householdId))) return;
   const result = await pool.query(
-    `SELECT s.version,s.data,h.name AS household_name,
+    `SELECT s.version,s.data,h.name AS household_name,h.first_value_at,
       coalesce((SELECT jsonb_agg(jsonb_build_object('id',u.id,'name',u.name,'email',a.email,'role',m.role))
         FROM memberships m JOIN users u ON u.id=m.user_id JOIN accounts a ON a.id=u.account_id WHERE m.household_id=h.id),'[]'::jsonb) AS members,
       coalesce((SELECT jsonb_agg(jsonb_build_object('id',i.id,'email',g.email))
@@ -976,7 +1164,7 @@ app.get("/api/households/:id/state", { preHandler: residentSession }, async (req
   );
   if (!result.rowCount) return bad(reply, 404, "not_found", "Casa não encontrada.");
   const row = result.rows[0]!;
-  return { version: row.version, name: row.household_name, data: { ...(row.data as object), members: row.members, invites: row.invites } };
+  return { version: row.version, name: row.household_name, data: { ...(row.data as object), members: row.members, invites: row.invites, firstValueAt: row.first_value_at ? new Date(row.first_value_at).toISOString() : undefined } };
 });
 
 app.put("/api/households/:id/state", { preHandler: residentSession }, async (request, reply) => {
@@ -989,9 +1177,11 @@ app.put("/api/households/:id/state", { preHandler: residentSession }, async (req
   if (!Number.isInteger(version) || version < 1 || !data || !Array.isArray(events) || events.length > 500 || events.some((event) => {
     if (!event || typeof event !== "object") return true;
     const item = event as Body;
+    if (typeof item.id !== "string" || !item.id.trim() || item.id.length > 100) return true;
+    if (item.type === "item_compra_adicionado") return typeof item.itemId !== "string" || !item.itemId.trim() || item.itemId.length > 100;
     const validDate = item.occurrenceDate === undefined || typeof item.occurrenceDate === "string" && datePattern.test(item.occurrenceDate);
     const validScope = item.type !== "tarefa_editada" || ["occurrence", "series"].includes(String(item.scope));
-    return typeof item.id !== "string" || !item.id.trim() || item.id.length > 100 || typeof item.taskId !== "string" || !item.taskId.trim() || item.taskId.length > 100 || !["tarefa_criada", "tarefa_concluida", "tarefa_pulada", "tarefa_editada"].includes(String(item.type)) || !validDate || !validScope;
+    return typeof item.taskId !== "string" || !item.taskId.trim() || item.taskId.length > 100 || !["tarefa_criada", "tarefa_concluida", "tarefa_pulada", "tarefa_editada"].includes(String(item.type)) || !validDate || !validScope;
   })) {
     return bad(reply, 422, "validation", "Estado da casa inválido.");
   }
@@ -999,11 +1189,13 @@ app.put("/api/households/:id/state", { preHandler: residentSession }, async (req
     const current = await client.query("SELECT version,data FROM household_state WHERE household_id=$1 FOR UPDATE", [householdId]);
     if (!current.rowCount) return { conflict: undefined };
     if (Number(current.rows[0]!.version) !== version) return { conflict: current.rows[0] };
-    const oldData = current.rows[0]!.data as { tasks?: Array<Record<string, unknown>> };
+    const oldData = current.rows[0]!.data as { tasks?: Array<Record<string, unknown>>; items?: Array<Record<string, unknown>> };
     const oldTasks = new Set((oldData.tasks ?? []).map((task) => String(task.id)));
+    const oldItems = new Set((oldData.items ?? []).map((item) => String(item.id)));
     const oldTaskById = new Map((oldData.tasks ?? []).map((task) => [String(task.id), task]));
     const taskById = new Map(data.tasks.map((task) => [task.id, task]));
-    if (taskById.size !== data.tasks.length || events.some((event) => !taskById.has(String((event as Body).taskId)))) return { invalid: true };
+    const taskEvents = (events as Body[]).filter((event) => event.type !== "item_compra_adicionado");
+    if (taskById.size !== data.tasks.length || taskEvents.some((event) => !taskById.has(String(event.taskId)))) return { invalid: true };
     const foreignTask = await client.query("SELECT 1 FROM task_metadata WHERE id=ANY($1::text[]) AND household_id<>$2 LIMIT 1", [[...taskById.keys()], householdId]);
     if (foreignTask.rowCount) return { invalid: true };
     const activeMembers = await client.query("SELECT user_id FROM memberships WHERE household_id=$1", [householdId]);
@@ -1022,17 +1214,29 @@ app.put("/api/households/:id/state", { preHandler: residentSession }, async (req
     );
     const eventTypes = new Map<string, string>();
     const createdEvents = new Set<string>();
-    for (const event of events as Array<{ id: string; type: string; taskId: string; occurrenceDate?: string; scope?: "occurrence" | "series" }>) {
-      eventTypes.set(event.taskId, event.type);
-      if (event.type === "tarefa_criada") createdEvents.add(event.taskId);
-      await client.query(
+    const trackedItemIds = new Set<string>();
+    for (const event of events as Array<{ id: string; type: string; taskId?: string; itemId?: string; occurrenceDate?: string; scope?: "occurrence" | "series" }>) {
+      if (event.type === "item_compra_adicionado") {
+        trackedItemIds.add(event.itemId!);
+        const saved = await client.query(
+          "INSERT INTO activity_events(id,event_type,user_id,household_id) VALUES($1,'item_compra_adicionado',$2,$3) ON CONFLICT(id) DO NOTHING",
+          [event.id, request.resident!.id, householdId],
+        );
+        if (saved.rowCount) await client.query("UPDATE households SET first_value_at=now(),first_value_type='compra' WHERE id=$1 AND first_value_at IS NULL", [householdId]);
+        continue;
+      }
+      const taskId = event.taskId!;
+      eventTypes.set(taskId, event.type);
+      if (event.type === "tarefa_criada") createdEvents.add(taskId);
+      const saved = await client.query(
         "INSERT INTO activity_events(id,event_type,user_id,household_id) VALUES($1,$2,$3,$4) ON CONFLICT(id) DO NOTHING",
         [event.id, event.type, request.resident!.id, householdId],
       );
-      const prior = oldTaskById.get(event.taskId);
+      if (event.type === "tarefa_criada" && saved.rowCount) await client.query("UPDATE households SET first_value_at=now(),first_value_type='tarefa' WHERE id=$1 AND first_value_at IS NULL", [householdId]);
+      const prior = oldTaskById.get(taskId);
       const occurrenceDate = event.occurrenceDate ?? (typeof prior?.dueDate === "string" ? prior.dueDate : null);
       if (event.type === "tarefa_concluida" || event.type === "tarefa_pulada") {
-        const source = (prior ?? taskById.get(event.taskId)) as Record<string, unknown> | undefined;
+        const source = (prior ?? taskById.get(taskId)) as Record<string, unknown> | undefined;
         const rotation = Array.isArray(source?.rotation) ? source.rotation as string[] : [];
         const owner = source?.ownerMode === "rotation" && rotation.length
           ? rotation[Number(source.rotationIndex ?? 0) % rotation.length]
@@ -1041,14 +1245,14 @@ app.put("/api/households/:id/state", { preHandler: residentSession }, async (req
           `INSERT INTO task_occurrences(id,event_id,household_id,task_id,occurrence_key,scheduled_for,outcome,assigned_user_id,resolved_by_user_id)
            VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
            ON CONFLICT(household_id,task_id,occurrence_key) DO NOTHING`,
-          [id("occurrence"), event.id, householdId, event.taskId, occurrenceDate ?? "sem-data", occurrenceDate, event.type === "tarefa_concluida" ? "concluida" : "pulada", owner ?? null, request.resident!.id],
+          [id("occurrence"), event.id, householdId, taskId, occurrenceDate ?? "sem-data", occurrenceDate, event.type === "tarefa_concluida" ? "concluida" : "pulada", owner ?? null, request.resident!.id],
         );
       } else if (event.type === "tarefa_criada" || event.type === "tarefa_editada") {
-        const snapshot = taskById.get(event.taskId) as Record<string, unknown> | undefined;
+        const snapshot = taskById.get(taskId) as Record<string, unknown> | undefined;
         const effectiveDate = occurrenceDate ?? (typeof snapshot?.dueDate === "string" ? snapshot.dueDate : null);
         await client.query(
           "INSERT INTO task_versions(id,event_id,household_id,task_id,effective_from,scope,snapshot,changed_by) VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8) ON CONFLICT(event_id) DO NOTHING",
-          [id("task-version"), event.id, householdId, event.taskId, effectiveDate, event.type === "tarefa_criada" ? "series" : event.scope, JSON.stringify(snapshot), request.resident!.id],
+          [id("task-version"), event.id, householdId, taskId, effectiveDate, event.type === "tarefa_criada" ? "series" : event.scope, JSON.stringify(snapshot), request.resident!.id],
         );
       }
     }
@@ -1057,6 +1261,7 @@ app.put("/api/households/:id/state", { preHandler: residentSession }, async (req
       const created = !oldTasks.has(taskId);
       if (created && !createdEvents.has(taskId)) {
         await client.query("INSERT INTO activity_events(id,event_type,user_id,household_id) VALUES($1,'tarefa_criada',$2,$3)", [id("event"), request.resident!.id, householdId]);
+        await client.query("UPDATE households SET first_value_at=now(),first_value_type='tarefa' WHERE id=$1 AND first_value_at IS NULL", [householdId]);
       }
       const due = typeof task.dueDate === "string" ? `${task.dueDate}T12:00:00Z` : null;
       const completed = eventTypes.get(taskId) === "tarefa_concluida" || task.completed === true ? new Date().toISOString() : null;
@@ -1068,7 +1273,14 @@ app.put("/api/households/:id/state", { preHandler: residentSession }, async (req
       );
       if (!savedMeta.rowCount) throw Object.assign(new Error("A tarefa não pertence a esta casa."), { statusCode: 422, appCode: "validation" });
     }
-    return { version: updated.rows[0]!.version };
+    for (const item of data.items) {
+      if (!oldItems.has(item.id) && !trackedItemIds.has(item.id)) {
+        await client.query("INSERT INTO activity_events(id,event_type,user_id,household_id) VALUES($1,'item_compra_adicionado',$2,$3)", [id("event"), request.resident!.id, householdId]);
+        await client.query("UPDATE households SET first_value_at=now(),first_value_type='compra' WHERE id=$1 AND first_value_at IS NULL", [householdId]);
+      }
+    }
+    const firstValue = await client.query("SELECT first_value_at FROM households WHERE id=$1", [householdId]);
+    return { version: updated.rows[0]!.version, firstValueAt: firstValue.rows[0]!.first_value_at ? new Date(firstValue.rows[0]!.first_value_at as string).toISOString() : undefined };
   });
   if ("invalid" in result) return bad(reply, 422, "validation", "A tarefa informada não pertence a esta casa.");
   if ("conflict" in result && !result.conflict) return bad(reply, 404, "not_found", "Casa não encontrada.");
@@ -1366,11 +1578,11 @@ app.get("/api/admin/households/:id", { preHandler: adminSession }, async (reques
 app.get("/api/admin/analytics", { preHandler: adminSession }, async (request) => {
   const query = request.query as { period?: string; source?: string; size?: string };
   const period = [7, 30, 90].includes(Number(query.period)) ? Number(query.period) as AnalyticsFilter["period"] : 30;
-  const source = ["lista", "convite_admin", "convite_morador"].includes(query.source ?? "") ? query.source as AnalyticsFilter["source"] : "todos";
+  const source = ["lista", "convite_admin", "convite_morador", "publico"].includes(query.source ?? "") ? query.source as AnalyticsFilter["source"] : "todos";
   const size = ["1", "2", "3+"].includes(query.size ?? "") ? query.size as AnalyticsFilter["size"] : "todos";
   const [users, households, memberships, allowlist, invitations, tasks, activity] = await Promise.all([
     pool.query("SELECT u.id,a.email,u.status,u.source,u.access_id,u.created_at FROM users u JOIN accounts a ON a.id=u.account_id"),
-    pool.query("SELECT id,name,created_at FROM households"),
+    pool.query("SELECT id,name,created_at,first_value_at FROM households"),
     pool.query("SELECT user_id,household_id,joined_at FROM memberships"),
     pool.query("SELECT a.id,g.email,g.created_at FROM allow_entries a JOIN access_grants g ON g.id=a.access_id"),
     pool.query("SELECT i.id,g.email,g.source,i.created_at FROM invitations i JOIN access_grants g ON g.id=i.access_id"),
@@ -1380,7 +1592,7 @@ app.get("/api/admin/analytics", { preHandler: adminSession }, async (request) =>
   const iso = (value: Date | string) => new Date(value).toISOString();
   const data: AnalyticsDataSet = {
     users: users.rows.map((row) => ({ id: row.id, email: row.email, status: row.status, source: row.source, accessId: row.access_id, createdAt: iso(row.created_at) })),
-    households: households.rows.map((row) => ({ id: row.id, name: row.name, createdAt: iso(row.created_at) })),
+    households: households.rows.map((row) => ({ id: row.id, name: row.name, createdAt: iso(row.created_at), firstValueAt: row.first_value_at ? iso(row.first_value_at) : undefined })),
     memberships: memberships.rows.map((row) => ({ userId: row.user_id, householdId: row.household_id, joinedAt: iso(row.joined_at) })),
     allowlist: allowlist.rows.map((row) => ({ id: row.id, email: row.email, addedAt: iso(row.created_at) })),
     invitations: invitations.rows.map((row) => ({ id: row.id, email: row.email, source: row.source, createdAt: iso(row.created_at) })),
@@ -1413,6 +1625,9 @@ if (existsSync(path.join(webRoot, "index.html"))) {
 }
 
 const port = Number(process.env.PORT ?? 3000);
+if (publicSignupEnabled) {
+  await pool.query("INSERT INTO app_settings(key,value) VALUES('public_signup_launched_at',now()::text) ON CONFLICT(key) DO NOTHING");
+}
 await app.listen({ host: "0.0.0.0", port });
 app.log.info({ port }, "Chega de Briga API ready");
 
@@ -1423,7 +1638,9 @@ const cleanup = setInterval(() => {
     pool.query("DELETE FROM admin_login_challenges WHERE expires_at<now()"),
     pool.query("DELETE FROM email_tokens WHERE expires_at<now() OR used_at<now()-interval '1 day'"),
     pool.query("DELETE FROM activity_events WHERE occurred_at<now()-interval '90 days'"),
+    pool.query("DELETE FROM public_landing_events WHERE occurred_at<now()-interval '90 days'"),
     pool.query("DELETE FROM admin_audit_events WHERE occurred_at<now()-interval '12 months'"),
+    pool.query("DELETE FROM waitlist_contacts WHERE EXISTS (SELECT 1 FROM app_settings WHERE key='public_signup_launched_at' AND now()>=value::timestamptz+interval '90 days')"),
     pool.query("DELETE FROM mail_outbox WHERE attempts>=10 AND created_at<now()-interval '7 days'"),
   ]).catch((error) => app.log.error({ err: error }, "retention cleanup failed"));
 }, 60 * 60 * 1000);

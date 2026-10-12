@@ -1,4 +1,4 @@
-import type { AuthSession, TaskSyncEvent } from "../admin/contracts";
+import type { AuthSession, ProductSyncEvent } from "../admin/contracts";
 import type { HouseData, ResidentTask, ShoppingItem } from "./ResidentModel";
 
 export type CachedHouse = {
@@ -6,7 +6,7 @@ export type CachedHouse = {
   data: HouseData;
   baseData: HouseData;
   pending: boolean;
-  events: TaskSyncEvent[];
+  events: ProductSyncEvent[];
   savedAt: string;
 };
 

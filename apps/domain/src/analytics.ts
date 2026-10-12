@@ -1,4 +1,4 @@
-export type AccessSource = "lista" | "convite_admin" | "convite_morador";
+export type AccessSource = "lista" | "convite_admin" | "convite_morador" | "publico";
 export type AnalyticsFilter = {
   period: 7 | 30 | 90;
   source: AccessSource | "todos";
@@ -12,6 +12,7 @@ export type AnalyticsResult = {
   sampleHouses: number;
   people: FunnelStep[];
   activation: FunnelStep[];
+  firstValue: FunnelStep[];
   weeklyActive: { week: string; houses: number; denominator: number }[];
   cohorts: { week: string; houses: number; week1?: number; week1Denominator: number; week4?: number; week4Denominator: number }[];
   overdueOpen: number;
@@ -20,7 +21,7 @@ export type AnalyticsResult = {
 };
 export type AnalyticsDataSet = {
   users: { id: string; email: string; status: string; source: AccessSource; accessId: string; createdAt: string }[];
-  households: { id: string; name: string; createdAt: string }[];
+  households: { id: string; name: string; createdAt: string; firstValueAt?: string }[];
   memberships: { userId: string; householdId: string; joinedAt: string }[];
   allowlist: { id: string; email: string; addedAt: string }[];
   invitations: { id: string; email: string; source: Exclude<AccessSource, "lista">; createdAt: string }[];
@@ -167,12 +168,24 @@ export function calculateAnalytics(
     step("Primeira tarefa", firstTask.length, twoPeople.length),
     step("Primeira conclusão", completed.length, firstTask.length),
   ];
+  const firstValue = [
+    step("Casa com 7 dias completos", created.length, created.length),
+    step(
+      "Tarefa, rotina ou compra em até 7 dias",
+      created.filter((house) =>
+        house.firstValueAt !== undefined &&
+        time(house.firstValueAt) >= time(house.createdAt) &&
+        time(house.firstValueAt) <= time(house.createdAt) + 7 * day,
+      ).length,
+      created.length,
+    ),
+  ];
 
   const active = (houseId: string, start: number, end: number) =>
     data.activity.some(
       (event) =>
         event.householdId === houseId &&
-        (event.type === "tarefa_criada" || event.type === "tarefa_concluida") &&
+        (event.type === "tarefa_criada" || event.type === "tarefa_concluida" || event.type === "item_compra_adicionado") &&
         inRange(event.at, start, end),
     );
   const weeklyActive = Array.from(
@@ -300,6 +313,7 @@ export function calculateAnalytics(
     sampleHouses: created.length,
     people,
     activation,
+    firstValue,
     weeklyActive,
     cohorts,
     overdueOpen,

@@ -36,9 +36,12 @@ import {
   LayoutDashboard,
   ListFilter,
   LogOut,
+  Mail,
   MailPlus,
+  Phone,
   Search,
   Settings2,
+  Trash2,
   UsersRound,
 } from "lucide-react";
 import { Avatar, Button, Card, EmptyState, LinkButton, Select, StatusBadge, TextField } from "../components/ui";
@@ -60,6 +63,9 @@ import type {
   SourceFilter,
   User,
   UserStatus,
+  WaitlistAnalytics,
+  WaitlistEntry,
+  WaitlistQuery,
 } from "./contracts";
 import styles from "./AdminApp.module.css";
 
@@ -92,6 +98,7 @@ const sourceName: Record<SourceFilter, string> = {
   lista: "Lista de autorização",
   convite_admin: "Convite da equipe",
   convite_morador: "Convite de morador",
+  publico: "Cadastro público",
 };
 const statusName: Record<UserStatus, string> = {
   ativo: "Ativo",
@@ -1453,6 +1460,9 @@ function downloadCsv(data: Analytics) {
     ...data.activation.map(
       (step) => `casa;${step.label};${step.count};${step.denominator}`,
     ),
+    ...data.firstValue.map(
+      (step) => `primeiro_valor;${step.label};${step.count};${step.denominator}`,
+    ),
     ...data.weeklyActive.map(
       (week) => `casas_ativas;${week.week};${week.houses};${week.denominator}`,
     ),
@@ -1601,12 +1611,17 @@ function AnalyticsContent({ data }: { data: Analytics }) {
           note={`Casas criadas de ${range} com 7 dias completos de observação. Duas pessoas, primeira tarefa e primeira conclusão até o 7º dia. Cada taxa usa a etapa anterior.`}
         />
       </div>
+      <Funnel
+        title="Primeiro valor"
+        steps={data.firstValue}
+        note={`Casas criadas de ${range} com 7 dias completos de observação; primeira tarefa, rotina ou inclusão de compra até o 7º dia. Cada casa conta uma vez.`}
+      />
       <div className={styles.twoColumns}>
         <Card>
           <span className={styles.eyebrow}>USO SEMANAL</span>
           <h2>Casas ativas</h2>
           <p className={styles.finePrint}>
-            Casa ativa = criação ou conclusão de tarefa na semana. Só casas do
+            Casa ativa = criação ou conclusão de tarefa ou inclusão de compra na semana. Só casas do
             segmento; semana parcial pode ter menos atividade.
           </p>
           <div
@@ -1706,6 +1721,161 @@ function AnalyticsContent({ data }: { data: Analytics }) {
   );
 }
 
+function WaitlistAdminPage() {
+  const gateway = useAdminGateway();
+  const queryClient = useQueryClient();
+  const { showToast } = useToast();
+  const [period, setPeriod] = useState<7 | 30 | 90>(30);
+  const [filters, setFilters] = useState<WaitlistQuery>({ search: "", channel: "todos", campaign: "", page: 1 });
+  const [draft, setDraft] = useState({ search: "", channel: "todos" as WaitlistQuery["channel"], campaign: "" });
+  const [target, setTarget] = useState<WaitlistEntry>();
+  const analytics = useQuery({ queryKey: ["waitlist-analytics", period], queryFn: () => gateway.waitlistAnalytics(period) });
+  const entries = useQuery({ queryKey: ["waitlist", filters], queryFn: () => gateway.waitlist(filters) });
+  const remove = useMutation({
+    mutationFn: (entry: WaitlistEntry) => gateway.deleteWaitlistEntry(entry.id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["waitlist"] });
+      showToast("Contato removido da lista.");
+      setTarget(undefined);
+    },
+  });
+  function applyFilters(event: FormEvent) {
+    event.preventDefault();
+    setFilters({ ...draft, page: 1 });
+  }
+  return (
+    <>
+      <PageHeading
+        eyebrow="LEADS / LISTA DE ESPERA"
+        title="Quem quer receber o aviso?"
+        description="Contatos autorizados para receber uma única comunicação sobre a abertura do cadastro."
+      />
+      <div className={styles.filterPanel}>
+        <Select
+          className={styles.selectField}
+          label="Período das métricas"
+          value={String(period)}
+          options={[{ value: "7", label: "7 dias" }, { value: "30", label: "30 dias" }, { value: "90", label: "90 dias" }]}
+          onChange={(value) => setPeriod(Number(value) as 7 | 30 | 90)}
+        />
+      </div>
+      {analytics.isPending ? <Loading /> : analytics.error ? <QueryError error={analytics.error} /> : (
+        <WaitlistAnalyticsContent data={analytics.data} />
+      )}
+      <Card className={styles.waitlistFilters}>
+        <span className={styles.eyebrow}>CONTATOS AUTORIZADOS</span>
+        <form className={styles.waitlistFilterForm} onSubmit={applyFilters}>
+          <TextField id="waitlist-search" label="Buscar contato" value={draft.search} onChange={(event) => setDraft({ ...draft, search: event.target.value })} />
+          <Select label="Canal" value={draft.channel} options={[{ value: "todos", label: "Todos os canais" }, { value: "email", label: "E-mail" }, { value: "whatsapp", label: "WhatsApp" }]} onChange={(value) => setDraft({ ...draft, channel: value as WaitlistQuery["channel"] })} />
+          <TextField id="waitlist-campaign" label="Campanha exata" value={draft.campaign} onChange={(event) => setDraft({ ...draft, campaign: event.target.value })} />
+          <Button type="submit"><Search size={18} aria-hidden="true" /> Filtrar</Button>
+        </form>
+        {entries.isPending ? <Loading /> : entries.error ? <QueryError error={entries.error} /> : entries.data.items.length ? (
+          <>
+            <p className={styles.finePrint}>{entries.data.total} contato(s) · página {entries.data.page} de {entries.data.pages}. Esta lista é acessível somente pelo console autenticado.</p>
+            <div className={styles.tableWrap} role="region" aria-label="Contatos da lista de espera" tabIndex={0}>
+              <table>
+                <caption>Contatos autorizados e campanha de origem</caption>
+                <thead><tr><th>Contato</th><th>Canal</th><th>Campanha</th><th>Entrou em</th><th>Ação</th></tr></thead>
+                <tbody>{entries.data.items.map((entry) => (
+                  <tr key={entry.id}>
+                    <th scope="row">{entry.contact}</th>
+                    <td>{entry.channel === "email" ? <><Mail size={16} aria-hidden="true" /> E-mail</> : <><Phone size={16} aria-hidden="true" /> WhatsApp</>}</td>
+                    <td>{entry.utmCampaign ?? "Sem campanha"}</td>
+                    <td>{dateTime(entry.createdAt)}</td>
+                    <td><Button variant="quiet" onClick={() => setTarget(entry)}><Trash2 size={17} aria-hidden="true" /> Remover</Button></td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+            <div className={styles.pagination}>
+              <Button variant="secondary" disabled={entries.data.page <= 1} onClick={() => setFilters({ ...filters, page: filters.page - 1 })}>Anterior</Button>
+              <span>Página {entries.data.page} de {entries.data.pages}</span>
+              <Button variant="secondary" disabled={entries.data.page >= entries.data.pages} onClick={() => setFilters({ ...filters, page: filters.page + 1 })}>Próxima</Button>
+            </div>
+          </>
+        ) : <EmptyState title="Nenhum contato neste recorte." description="Ajuste os filtros ou aguarde novas inscrições." />}
+      </Card>
+      {remove.error && <QueryError error={remove.error} />}
+      <ConfirmDialog
+        open={Boolean(target)}
+        onClose={() => setTarget(undefined)}
+        title="Remover este contato?"
+        description="O contato será apagado da lista. A métrica agregada de inscrição continuará sem vínculo com esta pessoa."
+        confirmLabel="Remover contato"
+        onConfirm={() => { if (target) remove.mutate(target); }}
+      />
+    </>
+  );
+}
+
+function WaitlistAnalyticsContent({ data }: { data: WaitlistAnalytics }) {
+  const range = `${date(data.from)} a ${date(data.to)}`;
+  return (
+    <>
+      <Message>Período: {range}. A conversão divide inscrições válidas por carregamentos da página; recarregamentos também contam. Não há visitantes únicos.</Message>
+      <div className={styles.stats}>
+        <Stat label="Carregamentos" value={data.pageLoads} detail="Visualizações; recargas contam" />
+        <Stat label="Inícios do formulário" value={data.formStarts} detail="Primeiro foco no formulário por carregamento" />
+        <Stat label="Inscrições válidas" value={data.signups} detail="Contatos novos com autorização" />
+        <Stat label="Conversão" value={`${Math.round(data.conversion * 100)}%`} detail={`${data.signups} inscrições ÷ ${data.pageLoads} carregamentos`} />
+      </div>
+      {data.signupEnabled ? <Funnel title="Landing até primeiro valor" steps={data.publicFunnel} note="Contas públicas criadas e casas com 7 dias completos desde a abertura. As etapas são agregadas; nenhum contato da espera é associado a uma conta." /> : <Message>Cadastro público fechado. O funil agregado landing → conta → casa → primeiro valor aparecerá quando a configuração de lançamento for habilitada.</Message>}
+      <div className={styles.twoColumns}>
+        <Card>
+          <span className={styles.eyebrow}>EVOLUÇÃO / {data.period} DIAS</span>
+          <h2>Visitas até inscrições</h2>
+          <div className={styles.chart} role="group" aria-label="Gráfico de carregamentos, inícios e inscrições por dia. Os valores também aparecem na tabela abaixo.">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={data.daily} accessibilityLayer>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" tickFormatter={(value: string) => value.slice(5)} />
+                <YAxis allowDecimals={false} width={32} />
+                <Tooltip />
+                <Bar dataKey="pageLoads" name="Carregamentos" fill="var(--color-primary)" />
+                <Bar dataKey="formStarts" name="Inícios" fill="var(--brand-blue)" />
+                <Bar dataKey="signups" name="Inscrições" fill="var(--brand-lilac)" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+        <Card>
+          <span className={styles.eyebrow}>CANAL ESCOLHIDO</span>
+          <h2>Como preferem receber?</h2>
+          {data.byChannel.length ? <div className={styles.channelStats}>{data.byChannel.map((item) => (
+            <div key={item.channel}><span>{item.channel === "email" ? <Mail size={18} aria-hidden="true" /> : <Phone size={18} aria-hidden="true" />}{item.channel === "email" ? " E-mail" : " WhatsApp"}</span><strong>{item.count}</strong></div>
+          ))}</div> : <p>Sem inscrições neste período.</p>}
+          <p className={styles.finePrint}>Somente totais agregados por canal; não associamos contatos a contas individuais.</p>
+        </Card>
+      </div>
+      <div className={styles.twoColumns}>
+        <Card>
+          <span className={styles.eyebrow}>CAMPANHAS</span>
+          <h2>Origem marcada na página</h2>
+          <div className={styles.tableWrap} role="region" aria-label="Métricas agregadas por campanha" tabIndex={0}>
+            <table>
+              <caption>Carregamentos, inícios e inscrições por campanha</caption>
+              <thead><tr><th>Campanha</th><th>Carregamentos</th><th>Inícios</th><th>Inscrições</th></tr></thead>
+              <tbody>{data.byCampaign.map((row) => <tr key={row.campaign}><th scope="row">{row.campaign}</th><td>{row.pageLoads}</td><td>{row.formStarts}</td><td>{row.signups}</td></tr>)}</tbody>
+            </table>
+          </div>
+        </Card>
+        <Card>
+          <span className={styles.eyebrow}>SÉRIE DIÁRIA</span>
+          <h2>Contagens por dia</h2>
+          <div className={styles.tableWrap} role="region" aria-label="Métricas agregadas por dia" tabIndex={0}>
+            <table>
+              <caption>Carregamentos, inícios e inscrições por dia</caption>
+              <thead><tr><th>Dia</th><th>Carregamentos</th><th>Inícios</th><th>Inscrições</th></tr></thead>
+              <tbody>{data.daily.slice(-14).map((row) => <tr key={row.date}><th scope="row">{row.date}</th><td>{row.pageLoads}</td><td>{row.formStarts}</td><td>{row.signups}</td></tr>)}</tbody>
+            </table>
+          </div>
+        </Card>
+      </div>
+    </>
+  );
+}
+
 const adminMenuItems: MobileMenuItem[] = [
   {
     to: "/admin",
@@ -1737,6 +1907,12 @@ const adminMenuItems: MobileMenuItem[] = [
     label: "Análise",
     icon: ChartNoAxesCombined,
     description: "Funis e retenção",
+  },
+  {
+    to: "/admin/lista-de-espera",
+    label: "Lista de espera",
+    icon: MailPlus,
+    description: "Leads e conversão da landing",
   },
 ];
 
@@ -1849,6 +2025,7 @@ function AdminInner({ themeControl }: { themeControl: ReactNode }) {
             <Route path="casas" element={<HousesPage />} />
             <Route path="casas/:id" element={<HouseDetail />} />
             <Route path="analise" element={<AnalyticsPage />} />
+            <Route path="lista-de-espera" element={<WaitlistAdminPage />} />
             <Route path="*" element={<Navigate to="/admin" replace />} />
           </Routes>
         </div>

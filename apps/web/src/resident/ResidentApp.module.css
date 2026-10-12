@@ -89,6 +89,14 @@
 .welcome h2 { max-width: 15ch; margin: 0.7rem 0 0.45rem; font: 900 clamp(1.8rem, 6vw, 3rem)/0.98 var(--font-display); letter-spacing: -0.05em; }
 .welcome p { margin: 0; color: rgb(255 255 255 / 84%); line-height: 1.5; }
 .welcome img { flex: 0 0 auto; width: clamp(58px, 14vw, 104px); margin-left: 0.6rem; filter: drop-shadow(4px 4px 0 var(--brand-ink)); }
+.firstUseCard { display: grid; gap: 0.65rem; padding: clamp(1.1rem, 3vw, 1.65rem); border-color: var(--color-primary); background: var(--color-surface-accent); }
+.firstUseCard > .eyebrow { color: var(--color-primary); }
+.firstUseCard h2 { max-width: 24ch; margin: 0; font: 900 clamp(1.45rem, 4vw, 2rem)/1.04 var(--font-display); letter-spacing: -0.04em; }
+.firstUseCard p { max-width: 62ch; margin: 0; color: var(--color-text-muted); line-height: 1.5; }
+.firstUseActions { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.35rem; }
+.firstUseActions a { display: inline-flex; align-items: center; justify-content: center; gap: 0.45rem; min-height: 48px; padding: 0.65rem 0.9rem; border: var(--stroke) solid var(--color-primary); border-radius: var(--radius-pill); background: var(--color-primary); color: var(--color-on-primary); font-size: var(--type-sm); font-weight: 800; text-decoration: none; }
+.firstUseActions a + a { background: var(--color-surface); color: var(--color-primary); }
+.firstUseActions a:hover { filter: brightness(1.08); }
 
 .contentSection { display: grid; gap: 0.7rem; }
 .sectionHeading, .sectionHeadingCompact { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
@@ -240,6 +248,8 @@
   .summaryLink { grid-column: 2; justify-self: start; }
   .quickActions { gap: 0.45rem; }
   .quickActions a { flex-direction: column; gap: 0.25rem; min-height: 68px; padding-inline: 0.4rem; font-size: 0.72rem; }
+  .firstUseActions { display: grid; }
+  .firstUseActions a { width: 100%; }
   .addItemForm { grid-template-columns: minmax(0, 1fr); }
   .addItemForm > label, .addItemForm > button { grid-column: auto; }
   .addItemForm > button { justify-self: stretch; }
