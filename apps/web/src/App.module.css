@@ -437,6 +437,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: 0.5rem;
   max-width: min(450px, calc(100vw - 2rem));
   padding: 0.8rem;

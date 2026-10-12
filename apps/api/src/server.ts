@@ -1330,7 +1330,7 @@ app.get("/api/admin/analytics", { preHandler: adminSession }, async (request) =>
     pool.query("SELECT u.id,a.email,u.status,u.source,u.access_id,u.created_at FROM users u JOIN accounts a ON a.id=u.account_id"),
     pool.query("SELECT id,name,created_at FROM households"),
     pool.query("SELECT user_id,household_id,joined_at FROM memberships"),
-    pool.query("SELECT a.id,g.email,a.created_at FROM allow_entries a JOIN access_grants g ON g.id=a.access_id"),
+    pool.query("SELECT a.id,g.email,g.created_at FROM allow_entries a JOIN access_grants g ON g.id=a.access_id"),
     pool.query("SELECT i.id,g.email,g.source,i.created_at FROM invitations i JOIN access_grants g ON g.id=i.access_id"),
     pool.query("SELECT id,household_id,created_at,due_at,completed_at,is_open FROM task_metadata"),
     pool.query("SELECT id,household_id,event_type,occurred_at FROM activity_events WHERE occurred_at>now()-interval '125 days'"),
@@ -1350,7 +1350,7 @@ app.get("/api/admin/analytics", { preHandler: adminSession }, async (request) =>
 
 app.get("/api/admin/access", { preHandler: adminSession }, async () => {
   const [allow, invites] = await Promise.all([
-    pool.query(`SELECT a.id,g.email,a.created_at,a.revoked_at FROM allow_entries a JOIN access_grants g ON g.id=a.access_id ORDER BY a.created_at DESC`),
+    pool.query(`SELECT a.id,g.email,g.created_at,a.revoked_at FROM allow_entries a JOIN access_grants g ON g.id=a.access_id ORDER BY g.created_at DESC`),
     pool.query(`SELECT i.id,g.email,g.source,i.household_id,i.inviter_user_id,
         CASE WHEN i.status='pendente' AND i.expires_at<=now() THEN 'expirado' ELSE i.status END AS status,
         i.created_at,i.expires_at,i.accepted_at
