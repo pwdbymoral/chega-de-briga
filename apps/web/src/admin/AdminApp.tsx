@@ -86,7 +86,7 @@ const dateTime = (value: string) =>
     timeStyle: "short",
   });
 const errorText = (error: unknown) =>
-  errorMessage(error, "Algo deu errado. Recarregue a tela e tente novamente.");
+  errorMessage(error, "Não foi possível concluir esta etapa. Recarregue a tela e tente novamente.");
 const sourceName: Record<SourceFilter, string> = {
   todos: "Todas as origens",
   lista: "Lista de autorização",

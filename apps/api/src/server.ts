@@ -405,7 +405,7 @@ app.post("/api/admin/bootstrap/request", { config: { rateLimit: { max: 3, timeWi
   const email = process.env.BOOTSTRAP_ADMIN_EMAIL;
   const count = await pool.query<{ count: string }>("SELECT count(*) FROM platform_admins");
   if (!email) return bad(reply, 503, "unavailable", "O primeiro acesso administrativo não está configurado neste servidor.");
-  if (Number(count.rows[0]?.count) > 0) return bad(reply, 409, "invalid_state", "A configuração inicial já foi concluída. Volte à tela de entrada e use a conta administrativa.");
+  if (Number(count.rows[0]?.count) > 0) return bad(reply, 409, "bootstrap_already_completed", "A configuração inicial já foi concluída. Volte à tela de entrada e use a conta administrativa.");
   const secret = createTotpSecret();
   const raw = token();
   const link = `${appOrigin}/admin/setup#token=${encodeURIComponent(raw)}`;
@@ -423,13 +423,13 @@ app.post("/api/admin/bootstrap/request", { config: { rateLimit: { max: 3, timeWi
 
 app.post("/api/admin/bootstrap/challenge", async (request, reply) => {
   const raw = text(bodyOf(request), "token");
-  if (!raw) return bad(reply, 400, "validation", "Link inválido ou expirado.");
+  if (!raw) return bad(reply, 400, "bootstrap_setup_invalid", "Link inválido ou expirado.");
   const result = await pool.query(
     `SELECT email,totp_secret FROM admin_bootstrap_tokens
      WHERE token_hash=$1 AND expires_at>now() AND used_at IS NULL`,
     [tokenHash(raw)],
   );
-  if (!result.rowCount) return bad(reply, 410, "invalid_state", "Link inválido ou expirado.");
+  if (!result.rowCount) return bad(reply, 410, "bootstrap_link_expired", "Link inválido ou expirado.");
   const { email, totp_secret: encrypted } = result.rows[0]!;
   const secret = decryptSecret(encrypted as string);
   return { email, totpSecret: secret, totpUri: totpUri(secret, email as string) };
@@ -476,7 +476,7 @@ app.post("/api/admin/bootstrap/complete", { config: { rateLimit: { max: 5, timeW
     await client.query("UPDATE admin_bootstrap_tokens SET used_at=now() WHERE id=$1", [row.id]);
     return { adminId, codes };
   });
-  if (!result) return bad(reply, 422, "invalid_state", "Link ou código inválido. Confira o horário do autenticador e tente novamente.");
+  if (!result) return bad(reply, 422, "bootstrap_setup_invalid", "Link ou código inválido. Confira o horário do autenticador e tente novamente.");
   await audit(result.adminId, "bootstrap_completed", "platform_admin", result.adminId, request.id);
   return { ok: true, recoveryCodes: result.codes };
 });
@@ -493,7 +493,7 @@ app.post("/api/admin/session/challenge", { config: { rateLimit: { max: 5, timeWi
   const passwordOk = admin ? await verifyPassword(text(body, "password"), admin.password_hash as string) : false;
   if (!admin || !passwordOk) {
     clearAdminLoginChallenge(reply);
-    return bad(reply, 401, "unauthenticated", "E-mail ou senha incorretos.");
+    return bad(reply, 401, "admin_login_failed", "E-mail ou senha incorretos.");
   }
   const challenge = token();
   await pool.query(
@@ -514,7 +514,7 @@ app.post("/api/admin/session/verify", { config: { rateLimit: { max: 5, timeWindo
   const challenge = request.cookies.cdb_admin_challenge ?? "";
   if (!challenge) {
     clearAdminLoginChallenge(reply);
-    return bad(reply, 401, "unauthenticated", "A verificação expirou. Entre novamente.");
+    return bad(reply, 401, "admin_challenge_expired", "A verificação expirou. Entre novamente.");
   }
   const code = text(bodyOf(request), "totp").trim();
   const rawSession = token();
@@ -546,7 +546,7 @@ app.post("/api/admin/session/verify", { config: { rateLimit: { max: 5, timeWindo
   });
   if (result === "expired") {
     clearAdminLoginChallenge(reply);
-    return bad(reply, 401, "unauthenticated", "A verificação expirou. Entre novamente.");
+    return bad(reply, 401, "admin_challenge_expired", "A verificação expirou. Entre novamente.");
   }
   if (result === "invalid_totp") return bad(reply, 401, "invalid_totp", "Código incorreto. Confira o autenticador ou use um código de recuperação.");
   setCookie(reply, "cdb_admin", rawSession, 8 * 60 * 60);
@@ -647,7 +647,7 @@ app.post("/api/auth/invitations/preview", async (request, reply) => {
      WHERE i.token_hash=$1`,
     [tokenHash(raw)],
   );
-  if (!result.rowCount) return bad(reply, 404, "not_found", "Convite não encontrado.");
+  if (!result.rowCount) return bad(reply, 404, "invitation_not_found", "Convite não encontrado.");
   const row = result.rows[0]!;
   const expired = new Date(row.expires_at as string) <= new Date();
   return {
@@ -677,7 +677,7 @@ app.post("/api/auth/email-verifications", { config: { rateLimit: { max: 10, time
     );
     return value;
   });
-  if (!userId) return bad(reply, 410, "invalid_state", "Link inválido ou expirado.");
+  if (!userId) return bad(reply, 410, "email_confirmation_expired", "Link de confirmação inválido ou expirado.");
   return { session: await startResidentSession(reply, userId) };
 });
 
@@ -691,7 +691,7 @@ app.post("/api/auth/session", { config: { rateLimit: { max: 8, timeWindow: "15 m
   );
   const row = result.rows[0];
   if (!row || row.status !== "ativo" || !row.email_verified_at || !(await verifyPassword(text(body, "password"), row.password_hash as string))) {
-    return bad(reply, 401, "unauthenticated", "E-mail ou senha incorretos, ou o e-mail ainda não foi confirmado.");
+    return bad(reply, 401, "resident_login_failed", "E-mail ou senha incorretos, perfil residencial indisponível ou e-mail ainda não confirmado.");
   }
   return { session: await startResidentSession(reply, row.id as string) };
 });
@@ -746,7 +746,7 @@ app.post("/api/auth/password-resets/confirm", { config: { rateLimit: { max: 8, t
     await client.query("UPDATE email_tokens SET used_at=now() WHERE token_hash=$1", [tokenHash(raw)]);
     return true;
   });
-  if (!updated) return bad(reply, 410, "invalid_state", "Link inválido ou expirado.");
+  if (!updated) return bad(reply, 410, "password_reset_expired", "Link inválido ou expirado.");
   return { ok: true };
 });
 
@@ -1103,7 +1103,7 @@ app.post("/api/households/:id/invitations", { preHandler: residentSession, confi
       "SELECT 1 FROM invitations i JOIN access_grants g ON g.id=i.access_id WHERE i.household_id=$1 AND g.email=$2 AND i.status='pendente' AND i.expires_at>now()",
       [householdId, email],
     );
-    if (pending.rowCount) throw Object.assign(new Error("Já existe um convite pendente para este e-mail."), { statusCode: 409, appCode: "invalid_state" });
+    if (pending.rowCount) throw Object.assign(new Error("Já existe um convite pendente para este e-mail."), { statusCode: 409, appCode: "invitation_pending" });
     await client.query("INSERT INTO access_grants(id,email,source) VALUES($1,$2,'convite_morador')", [accessId, email]);
     await client.query("INSERT INTO invitations(id,access_id,token_hash,household_id,inviter_user_id,expires_at) VALUES($1,$2,$3,$4,$5,now()+interval '7 days')", [invitationId, accessId, tokenHash(raw), householdId, request.resident!.id]);
     await sendToken(email, "Convite para uma casa no Chega de Briga", `${appOrigin}/criar-conta#convite=${encodeURIComponent(raw)}&email=${encodeURIComponent(email)}`, "em 7 dias", client);
@@ -1296,7 +1296,7 @@ app.post("/api/admin/invitations", { preHandler: adminSession }, async (request,
        WHERE g.email=$1 AND i.household_id IS NOT DISTINCT FROM $2::text AND i.status='pendente' AND i.expires_at>now()`,
       [email, householdId],
     );
-    if (duplicate.rowCount) throw Object.assign(new Error("Já existe um convite pendente para este e-mail e destino."), { statusCode: 409, appCode: "invalid_state" });
+    if (duplicate.rowCount) throw Object.assign(new Error("Já existe um convite pendente para este e-mail e destino."), { statusCode: 409, appCode: "invitation_pending" });
     await client.query("INSERT INTO access_grants(id,email,source) VALUES($1,$2,$3)", [accessId, email, source]);
     await client.query("INSERT INTO invitations(id,access_id,token_hash,household_id,expires_at) VALUES($1,$2,$3,$4,now()+interval '7 days')", [invitationId, accessId, tokenHash(raw), householdId]);
     await sendToken(email, "Convite para o Chega de Briga", `${appOrigin}/criar-conta#convite=${encodeURIComponent(raw)}&email=${encodeURIComponent(email)}`, "em 7 dias", client);
@@ -1333,7 +1333,7 @@ app.post("/api/admin/invitations/:id/resend", { preHandler: adminSession }, asyn
     await audit(request.admin!.id, "invitation_resent", "invitation", invitationId, request.id, client);
     return recipient;
   });
-  if (!email) return bad(reply, 409, "invalid_state", "Este convite não pode ser reenviado.");
+  if (!email) return bad(reply, 409, "invitation_not_resendable", "Este convite não pode ser reenviado.");
   return { ok: true };
 });
 

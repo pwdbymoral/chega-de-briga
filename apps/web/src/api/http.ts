@@ -10,10 +10,21 @@ export class ApiError extends Error {
 }
 
 const apiErrorMessages: Record<string, string> = {
-  unauthenticated: "Não foi possível confirmar o acesso. Confira seus dados ou entre novamente.",
+  unauthenticated: "Sua sessão expirou. Entre novamente para continuar.",
+  admin_login_failed: "E-mail ou senha não conferem. Confira os dados e tente novamente.",
+  admin_challenge_expired: "A verificação expirou. Volte ao login, informe e-mail e senha e tente com o código atual do autenticador.",
+  bootstrap_already_completed: "A configuração inicial já foi concluída. Volte à entrada do admin e use sua conta.",
+  bootstrap_link_expired: "Este link não está mais disponível. Volte à entrada do admin: solicite outro link para configurar ou entre com a conta já configurada.",
+  bootstrap_setup_invalid: "O link ou código não confere. Confira o horário do autenticador e tente novamente.",
+  resident_login_failed: "Não foi possível entrar. Confira e-mail e senha. Primeiro acesso à casa: peça ao admin que libere o e-mail em Acessos ou ao responsável que envie um convite e use “Criar conta”. Para e-mail de admin, use a mesma senha e confirme o endereço pelo link recebido.",
+  email_confirmation_expired: "Este link de confirmação expirou ou já foi usado. Entre em contato com quem liberou seu acesso para revisar o cadastro.",
+  password_reset_expired: "Este link expirou ou já foi usado. Volte a “Esqueceu a senha?” e solicite outro.",
+  invitation_not_found: "Não encontrei este convite. Confira o link ou peça ao responsável da casa que envie outro.",
+  invitation_pending: "Já existe um convite pendente para este e-mail. Atualize a lista e confira o convite atual.",
+  invitation_not_resendable: "Este convite não pode ser reenviado neste estado. Atualize a tela e confira o status antes de agir.",
   forbidden: "Sua conta não tem acesso a esta ação. Peça ao responsável da casa ou a um administrador para revisar seu acesso.",
   not_found: "Este item não está mais disponível. Atualize a tela e tente novamente.",
-  validation: "Revise os dados informados e tente novamente.",
+  validation: "Confira os campos do formulário, corrija os dados inválidos e tente novamente.",
   invalid_totp: "O código não confere. Verifique o autenticador ou use outro código de recuperação.",
   rate_limited: "Muitas tentativas. Aguarde alguns minutos antes de tentar novamente.",
   unavailable: "O serviço está temporariamente indisponível. Tente novamente em alguns minutos.",
@@ -21,15 +32,11 @@ const apiErrorMessages: Record<string, string> = {
   shared_admin: "Esta conta também tem acesso administrativo. Remova esse acesso no console antes de continuar.",
   duplicate_email: "Já existe uma conta com este e-mail. Confira o endereço ou use outro.",
   conflict: "Os dados mudaram em outro dispositivo. Atualize a tela antes de tentar novamente.",
+  invalid_state: "Esta ação não pode ser concluída agora. Atualize a tela e tente novamente.",
   origin: "A página ficou desatualizada. Recarregue-a e repita a ação.",
 };
 
 function apiErrorMessage(status: number, code: string): string {
-  if (code === "invalid_state") {
-    if (status === 409) return "A configuração inicial já foi concluída. Volte à entrada e use a conta administrativa.";
-    if (status === 410) return "Este link expirou ou já foi usado. Solicite um novo link para continuar.";
-    return "Este link ou código não é válido. Confira os dados e tente novamente; se expirou, solicite outro.";
-  }
   return apiErrorMessages[code] ?? (status >= 500
     ? "O serviço encontrou um erro. Tente novamente em alguns minutos; se continuar, fale com o suporte."
     : "Não foi possível concluir esta ação. Atualize a tela e tente novamente.");

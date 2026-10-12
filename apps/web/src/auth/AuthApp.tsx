@@ -187,7 +187,7 @@ function Login({ onSession }: { onSession: (session: AuthSession) => void }) {
           : "/criar-casa",
       );
     } catch (reason) {
-      setError(errorMessage(reason, "Não foi possível entrar. Confira seus dados de acesso e tente novamente."));
+      setError(errorMessage(reason, "Confira e-mail e senha. Primeiro acesso residencial? Peça liberação em Acessos ou um convite e escolha “Criar conta”."));
     } finally {
       setBusy(false);
     }
@@ -252,7 +252,7 @@ function Signup({ onSession }: { onSession: (session: AuthSession) => void }) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [pendingVerification, setPendingVerification] = useState(false);
+  const [registrationNotice, setRegistrationNotice] = useState(false);
 
   useEffect(() => {
     if (invitationId) window.history.replaceState(null, "", location.pathname);
@@ -307,7 +307,7 @@ function Signup({ onSession }: { onSession: (session: AuthSession) => void }) {
         invitationId,
       });
       if (!session) {
-        setPendingVerification(true);
+        setRegistrationNotice(true);
         return;
       }
       onSession(session);
@@ -317,7 +317,7 @@ function Signup({ onSession }: { onSession: (session: AuthSession) => void }) {
           : "/criar-casa",
       );
     } catch (reason) {
-      setError(errorMessage(reason, "Não foi possível criar sua conta. Revise os dados informados e tente novamente."));
+      setError(errorMessage(reason, "Não foi possível criar a conta. Confira o convite ou peça ao admin para liberar o e-mail em Acessos."));
     } finally {
       setBusy(false);
     }
@@ -335,7 +335,7 @@ function Signup({ onSession }: { onSession: (session: AuthSession) => void }) {
         <Loading label="Conferindo convite…" />
       ) : (
         <>
-          {pendingVerification && <Feedback tone="success">Se este e-mail estiver autorizado, você receberá um link para confirmar o endereço antes do primeiro acesso.</Feedback>}
+          {registrationNotice && <Feedback tone="info">Confira a caixa de entrada e o spam. Link de confirmação: use-o para liberar o acesso. Sem link: peça ao admin que verifique a liberação em Acessos ou ao responsável que revise o convite. Perfil já criado: use “Entrar”.</Feedback>}
           {invitation && invitation.status === "pendente" && (
             <Feedback tone="info">
               Convite válido
@@ -620,7 +620,7 @@ function VerifyEmail({ onSession }: { onSession: (session: AuthSession | null) =
       setMessage("E-mail confirmado. Abrindo sua casa…");
       navigate(session.memberships.length ? "/casa" : "/criar-casa", { replace: true });
     }).catch((error: unknown) => {
-      if (current) setMessage(errorMessage(error, "Este link expirou ou já foi usado. Solicite um novo e-mail de confirmação e tente novamente."));
+      if (current) setMessage(errorMessage(error, "Este link de confirmação não está mais disponível. Entre em contato com quem liberou seu acesso para revisar o cadastro."));
     });
     return () => { current = false; };
   }, [gateway, navigate, onSession, token]);
