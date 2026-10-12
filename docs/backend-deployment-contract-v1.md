@@ -88,7 +88,7 @@ flowchart LR
 - Sessões usam tokens opacos aleatórios, guardados no banco apenas como hash, e cookies distintos para admin e morador: `Secure`, `HttpOnly`, `SameSite=Lax`, `Path=/` e sem atributo `Domain`. Requisições que alteram dados validam a origem. Não guardar sessão ou senha em `localStorage`.
 - A sessão residencial expira após 30 dias; a administrativa após 8 horas. A senha é única por identidade; redefini-la pelo fluxo residencial revoga as sessões residencial e administrativa. Suspensão revoga somente a sessão residencial. Mudanças administrativas são auditadas sem conteúdo doméstico.
 - Aplicar rate limit a login, cadastro, verificação, recuperação, convite e TOTP. Respostas de erros não revelam existência de e-mail. Autorizar no servidor cada ação e cada casa; negar por padrão.
-- TOTP é obrigatório em toda conta administrativa e só é solicitado após validar e-mail e senha. O desafio da segunda etapa fica em cookie HttpOnly assinado, com validade de cinco minutos; o segredo TOTP fica criptografado no servidor e códigos de recuperação ficam armazenados como hashes e só podem ser usados uma vez. O OWASP recomenda MFA para contas administrativas. [OWASP MFA](https://cheatsheetseries.owasp.org/cheatsheets/Multifactor_Authentication_Cheat_Sheet.html)
+- TOTP é obrigatório em toda conta administrativa e só é solicitado após validar e-mail e senha. O desafio da segunda etapa fica em cookie HttpOnly, é guardado no banco apenas como hash e só pode ser consumido uma vez em até cinco minutos; o segredo TOTP fica criptografado no servidor e códigos de recuperação ficam armazenados como hashes e só podem ser usados uma vez. O OWASP recomenda MFA para contas administrativas. [OWASP MFA](https://cheatsheetseries.owasp.org/cheatsheets/Multifactor_Authentication_Cheat_Sheet.html)
 - Se todos os códigos de recuperação forem perdidos, a única recuperação é uma ação manual, auditada e feita no servidor após confirmar a identidade do responsável; exigir novo TOTP antes de liberar uma sessão administrativa.
 
 As flags de cookies e as proteções contra CSRF seguem a orientação do OWASP para gestão de sessão e requisições autenticadas. [OWASP Session Management](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html), [OWASP CSRF Prevention](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html)
@@ -106,6 +106,8 @@ O estado atual do backend residencial e o contrato de persistência são:
 - **Outbox:** `mail_outbox` guarda tokens e links cifrados pela chave de runtime, com tentativas limitadas; mensagens sem entrega são removidas após sete dias. E-mails transacionais usam SMTP; previews não recebem credenciais de produção.
 
 As regras exatas de recorrência, atribuição, conflitos de compras e limpeza de dados locais ficam apenas em [modelagem-mobile-v1.md](./modelagem-mobile-v1.md). Os endpoints não podem transformar uma cópia local pendente em dado compartilhado antes da confirmação do servidor.
+
+Migrações aplicadas em produção são imutáveis: mudanças no esquema entram em um novo arquivo numerado. O runner registra versões e hashes, rejeita arquivos alterados após a aplicação e executa o lote pendente em uma transação sob trava do PostgreSQL.
 
 ## API mínima
 

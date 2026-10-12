@@ -11,7 +11,6 @@ import { pool, id } from "./db.js";
 import { sendMail } from "./mail.js";
 import {
   ADMIN_LOGIN_CHALLENGE_TTL_SECONDS,
-  createAdminLoginChallenge,
   createTotpSecret,
   decryptSecret,
   encryptSecret,
@@ -21,7 +20,6 @@ import {
   token,
   tokenHash,
   totpUri,
-  verifyAdminLoginChallenge,
   verifyPassword,
   verifyTotp,
 } from "./security.js";
@@ -211,13 +209,6 @@ async function startResidentSession(reply: FastifyReply, userId: string) {
   await pool.query("UPDATE users SET last_seen_at=now() WHERE id=$1", [userId]);
   await pool.query("INSERT INTO activity_events(id,event_type,user_id) VALUES($1,'acesso',$2)", [id("event"), userId]);
   return sessionPayload(userId);
-}
-
-async function startAdminSession(reply: FastifyReply, adminId: string) {
-  const raw = token();
-  await pool.query("INSERT INTO admin_sessions(token_hash,admin_id,expires_at) VALUES($1,$2,now()+interval '8 hours')", [tokenHash(raw), adminId]);
-  setCookie(reply, "cdb_admin", raw, 8 * 60 * 60);
-  await pool.query("UPDATE platform_admins SET last_seen_at=now() WHERE id=$1", [adminId]);
 }
 
 async function requireHousehold(request: FastifyRequest, reply: FastifyReply, householdId: string) {
@@ -504,7 +495,12 @@ app.post("/api/admin/session/challenge", { config: { rateLimit: { max: 5, timeWi
     clearAdminLoginChallenge(reply);
     return bad(reply, 401, "unauthenticated", "E-mail ou senha incorretos.");
   }
-  reply.setCookie("cdb_admin_challenge", createAdminLoginChallenge(admin.id as string), {
+  const challenge = token();
+  await pool.query(
+    "INSERT INTO admin_login_challenges(token_hash,admin_id,expires_at) VALUES($1,$2,now()+($3::int * interval '1 second'))",
+    [tokenHash(challenge), admin.id, ADMIN_LOGIN_CHALLENGE_TTL_SECONDS],
+  );
+  reply.setCookie("cdb_admin_challenge", challenge, {
     httpOnly: true,
     secure: secureCookie,
     sameSite: "lax",
@@ -515,32 +511,45 @@ app.post("/api/admin/session/challenge", { config: { rateLimit: { max: 5, timeWi
 });
 
 app.post("/api/admin/session/verify", { config: { rateLimit: { max: 5, timeWindow: "15 minutes" } } }, async (request, reply) => {
-  const adminId = verifyAdminLoginChallenge(request.cookies.cdb_admin_challenge ?? "");
-  if (!adminId) {
-    clearAdminLoginChallenge(reply);
-    return bad(reply, 401, "unauthenticated", "A verificação expirou. Entre novamente.");
-  }
-  const result = await pool.query("SELECT id,totp_secret FROM platform_admins WHERE id=$1", [adminId]);
-  const admin = result.rows[0];
-  if (!admin) {
+  const challenge = request.cookies.cdb_admin_challenge ?? "";
+  if (!challenge) {
     clearAdminLoginChallenge(reply);
     return bad(reply, 401, "unauthenticated", "A verificação expirou. Entre novamente.");
   }
   const code = text(bodyOf(request), "totp").trim();
-  let totpOk = verifyTotp(decryptSecret(admin.totp_secret as string), code);
-  if (!totpOk) {
-    const recovery = code.toUpperCase().replace(/[^A-F0-9]/g, "");
-    if (recovery.length === 18) {
-      totpOk = await withTransaction(async (client) => {
-        const match = await client.query("SELECT id FROM admin_recovery_codes WHERE admin_id=$1 AND code_hash=$2 AND used_at IS NULL FOR UPDATE", [adminId, tokenHash(recovery)]);
-        if (!match.rowCount) return false;
-        await client.query("UPDATE admin_recovery_codes SET used_at=now() WHERE id=$1", [match.rows[0]!.id]);
-        return true;
-      });
+  const rawSession = token();
+  const result = await withTransaction(async (client) => {
+    const challengeResult = await client.query(
+      `SELECT p.id,p.totp_secret FROM admin_login_challenges c
+       JOIN platform_admins p ON p.id=c.admin_id
+       WHERE c.token_hash=$1 AND c.expires_at>now() FOR UPDATE OF c`,
+      [tokenHash(challenge)],
+    );
+    const admin = challengeResult.rows[0];
+    if (!admin) return "expired" as const;
+    let totpOk = verifyTotp(decryptSecret(admin.totp_secret as string), code);
+    if (!totpOk) {
+      const recovery = code.toUpperCase().replace(/[^A-F0-9]/g, "");
+      if (recovery.length === 18) {
+        const match = await client.query("SELECT id FROM admin_recovery_codes WHERE admin_id=$1 AND code_hash=$2 AND used_at IS NULL FOR UPDATE", [admin.id, tokenHash(recovery)]);
+        if (match.rowCount) {
+          await client.query("UPDATE admin_recovery_codes SET used_at=now() WHERE id=$1", [match.rows[0]!.id]);
+          totpOk = true;
+        }
+      }
     }
+    if (!totpOk) return "invalid_totp" as const;
+    await client.query("DELETE FROM admin_login_challenges WHERE token_hash=$1", [tokenHash(challenge)]);
+    await client.query("INSERT INTO admin_sessions(token_hash,admin_id,expires_at) VALUES($1,$2,now()+interval '8 hours')", [tokenHash(rawSession), admin.id]);
+    await client.query("UPDATE platform_admins SET last_seen_at=now() WHERE id=$1", [admin.id]);
+    return "authenticated" as const;
+  });
+  if (result === "expired") {
+    clearAdminLoginChallenge(reply);
+    return bad(reply, 401, "unauthenticated", "A verificação expirou. Entre novamente.");
   }
-  if (!totpOk) return bad(reply, 401, "invalid_totp", "Código incorreto. Confira o autenticador ou use um código de recuperação.");
-  await startAdminSession(reply, admin.id as string);
+  if (result === "invalid_totp") return bad(reply, 401, "invalid_totp", "Código incorreto. Confira o autenticador ou use um código de recuperação.");
+  setCookie(reply, "cdb_admin", rawSession, 8 * 60 * 60);
   clearAdminLoginChallenge(reply);
   return { ok: true };
 });
@@ -1411,6 +1420,7 @@ const cleanup = setInterval(() => {
   void Promise.all([
     pool.query("DELETE FROM user_sessions WHERE expires_at<now()"),
     pool.query("DELETE FROM admin_sessions WHERE expires_at<now()"),
+    pool.query("DELETE FROM admin_login_challenges WHERE expires_at<now()"),
     pool.query("DELETE FROM email_tokens WHERE expires_at<now() OR used_at<now()-interval '1 day'"),
     pool.query("DELETE FROM activity_events WHERE occurred_at<now()-interval '90 days'"),
     pool.query("DELETE FROM admin_audit_events WHERE occurred_at<now()-interval '12 months'"),

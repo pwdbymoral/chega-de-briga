@@ -18,7 +18,7 @@ Este documento define o domínio administrativo e as métricas usadas por `apps/
 | `activity_events` | `id`, `event_type`, `user_id?`, `household_id?`, `occurred_at` | eventos append-only com idempotência por ID; tipos abaixo |
 | `admin_audit_events` | `id`, `actor_admin_id`, `action`, `target_type`, `target_id`, `occurred_at`, `request_id` | append-only; nunca incluir senha, token ou conteúdo doméstico |
 
-IDs são opacos, estáveis e não devem codificar e-mail. Timestamps são ISO 8601 UTC. Endereços exibidos nos contratos administrativos são lidos da identidade `accounts`, não duplicados em `users`. Uma identidade pode ter os dois papéis e usa a mesma senha; a sessão administrativa exige TOTP e não reutiliza o cookie residencial. O TOTP só é solicitado depois que o servidor valida e-mail e senha; a primeira etapa usa um cookie HttpOnly assinado com validade de cinco minutos.
+IDs são opacos, estáveis e não devem codificar e-mail. Timestamps são ISO 8601 UTC. Endereços exibidos nos contratos administrativos são lidos da identidade `accounts`, não duplicados em `users`. Uma identidade pode ter os dois papéis e usa a mesma senha; a sessão administrativa exige TOTP e não reutiliza o cookie residencial. O TOTP só é solicitado depois que o servidor valida e-mail e senha; o desafio temporário é enviado em cookie HttpOnly e só pode ser consumido uma vez, em até cinco minutos. O banco guarda apenas o hash do desafio.
 
 ## Entrada restrita
 
