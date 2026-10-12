@@ -395,7 +395,7 @@ function Overview() {
         <Stat
           label="Casas criadas"
           value={houses.data.length}
-          detail="Total desde o início da demo"
+          detail="Total atual de casas"
         />
         <Stat
           label="Convites pendentes"
@@ -611,19 +611,19 @@ function UserEditor({
     onSuccess: async (_, action) => {
       if (action.kind === "status" && action.status === "excluido") {
         void queryClient.invalidateQueries();
-        showToast("Conta excluída na demonstração.");
+        showToast("Conta excluída.");
         navigate("/admin/usuarios");
         return;
       }
       await queryClient.invalidateQueries();
       showToast(
         action.kind === "profile"
-          ? "Perfil atualizado na demonstração."
+          ? "Perfil atualizado."
           : action.kind === "role"
-            ? "Papel da casa atualizado na demonstração."
+            ? "Papel da casa atualizado."
             : action.status === "suspenso"
-              ? "Conta suspensa na demonstração."
-              : "Conta reativada na demonstração.",
+              ? "Conta suspensa."
+              : "Conta reativada.",
       );
       setConfirm(null);
     },
@@ -686,8 +686,7 @@ function UserEditor({
               {statusName[user.status]}
             </StatusBadge>
             <p>
-              Suspender impede o acesso futuro quando houver backend. Nesta
-              demo, a ação altera somente dados locais.
+              Suspender impede o acesso futuro à conta.
             </p>
             <div className={styles.actions}>
               {user.status === "suspenso" ? (
@@ -709,13 +708,15 @@ function UserEditor({
                   Suspender conta
                 </Button>
               )}
-              <Button
-                variant="quiet"
-                disabled={mutation.isPending}
-                onClick={() => setConfirm("excluido")}
-              >
-                Excluir na demo
-              </Button>
+              {import.meta.env.DEV && (
+                <Button
+                  variant="quiet"
+                  disabled={mutation.isPending}
+                  onClick={() => setConfirm("excluido")}
+                >
+                  Excluir na demo
+                </Button>
+              )}
             </div>
           </Card>
         </div>
@@ -797,8 +798,8 @@ function UserEditor({
         onClose={() => setConfirm(null)}
         title={confirm === "excluido" ? "Excluir esta conta?" : "Suspender esta conta?"}
         description={confirm === "excluido"
-          ? "A conta sairá da lista e os dados de perfil serão anonimizados nesta demonstração."
-          : "A conta ficará marcada como suspensa nesta demonstração."}
+          ? "A conta sairá da lista e os dados de perfil serão anonimizados."
+          : "A conta ficará marcada como suspensa e perderá acesso à plataforma."}
         confirmLabel={confirm === "excluido" ? "Excluir conta" : "Suspender conta"}
         onConfirm={() => {
           if (confirm) mutation.mutate({ kind: "status", status: confirm });
@@ -898,11 +899,11 @@ function AccessPage() {
       await queryClient.invalidateQueries();
       showToast(
         {
-          allow: "E-mail liberado na demo.",
-          invite: "Convite criado na demo. Nenhum e-mail foi enviado.",
-          revokeAllow: "Autorização revogada na demo.",
-          revokeInvite: "Convite revogado na demo.",
-          resend: "Convite atualizado na demo. Nenhum e-mail foi enviado.",
+          allow: "Acesso liberado.",
+          invite: import.meta.env.DEV ? "Convite criado na demo; nenhum e-mail foi enviado." : "Convite criado; o e-mail entrou na fila de envio.",
+          revokeAllow: "Autorização revogada.",
+          revokeInvite: "Convite revogado.",
+          resend: import.meta.env.DEV ? "Convite atualizado na demo; nenhum e-mail foi enviado." : "Convite reenviado; o e-mail entrou na fila de envio.",
         }[action.kind],
       );
       if (action.kind === "allow") setAllowedEmail("");
@@ -1431,7 +1432,7 @@ function AnalyticsPage() {
       <PageHeading
         eyebrow="ANÁLISE / AGREGADOS"
         title="Onde o combinado emperra?"
-        description="Funis de pessoas e casas têm denominadores próprios. Os dados são fictícios e descrevem uso, não intenção de compra."
+        description="Funis de pessoas e casas têm denominadores próprios. Os dados descrevem uso observado, não intenção de compra."
       />
       <details
         className={`${styles.filterDisclosure} ${styles.analyticsFilters}`}
