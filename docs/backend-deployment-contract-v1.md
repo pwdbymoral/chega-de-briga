@@ -38,7 +38,7 @@ O e-mail de login do responsável e o usuário SMTP são configuração privada:
 | Variável | Produção | Preview | Observação |
 | --- | --- | --- | --- |
 | `APP_STAGE` | `production` | `preview` | Define quais integrações são obrigatórias no início do serviço. |
-| `APP_ORIGIN` | Gerada a partir do domínio `app.forjacorp.com` | Gerada a partir do domínio HTTPS do PR | O Compose usa `SERVICE_URL_APP_3000`; usada em links, validação de origem e cookies. |
+| `APP_ORIGIN` | `COOLIFY_URL` (com fallback para `https://app.forjacorp.com`) | URL HTTPS do próprio PR, fornecida por `COOLIFY_URL` | Usada em links, validação de origem e cookies. |
 | `POSTGRES_PASSWORD` | Segredo de produção no Coolify | Segredo separado, sem credencial de produção | Use valor hexadecimal para formar a URL PostgreSQL sem ambiguidades. O Compose deriva `DATABASE_URL` e injeta a mesma senha no serviço do banco. |
 | `DATABASE_URL` | Derivada pelo Compose para o PostgreSQL persistente | Derivada pelo Compose para o PostgreSQL descartável do PR | Não configurar ou compartilhar URL externa entre ambientes. O serviço `database` não publica porta. |
 | `ENCRYPTION_KEY` | Obrigatória, privada | Obrigatória, separada da produção | 32 bytes codificados em Base64; protege TOTP, assinatura push e links em outbox. Perder a chave impede descriptografar esses dados. |
