@@ -31,7 +31,9 @@ import {
   ArrowRight,
   ChartNoAxesCombined,
   Download,
-  Ellipsis,
+  Ban,
+  Play,
+  RotateCw,
   House,
   KeyRound,
   LayoutDashboard,
@@ -46,6 +48,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import { Avatar, Button, Card, EmptyState, LinkButton, Select, StatusBadge, TextField } from "../components/ui";
+import { CardActions } from "../components/CardActions";
 import { MobileMenu, type MobileMenuItem } from "../components/MobileMenu";
 import { ConsoleLoading } from "../components/ConsoleLoading";
 import { ConfirmDialog } from "../components/ResidentOverlays";
@@ -476,28 +479,23 @@ function Overview() {
       </div>
       <div className={styles.twoColumns}>
         <Card className={styles.feature}>
-          <span className={styles.eyebrow}>ONDE OLHAR</span>
-          <h2>Pequenos sinais, boas conversas.</h2>
+          <CardActions context="Indicadores da casa" primary={{ label: "Ver análise", icon: ArrowRight, to: "/admin/analise" }}>
+            <span className={styles.eyebrow}>ONDE OLHAR</span>
+            <h2>Pequenos sinais, boas conversas.</h2>
+          </CardActions>
           <ul>
             {data.insights.slice(0, 3).map((item) => (
               <li key={item}>{item}</li>
             ))}
           </ul>
-          <Link to="/admin/analise" className={styles.textLink}>
-            Ver definições e denominadores{" "}
-            <ArrowRight size={18} aria-hidden="true" />
-          </Link>
+
         </Card>
         <Card>
-          <span className={styles.eyebrow}>ACESSO CONTROLADO</span>
-          <h2>A porta tem combinado.</h2>
-          <p>
-            Lista de autorização e convites ajudam a acompanhar quem pode
-            entrar. Revogar um acesso pendente não suspende uma conta existente.
-          </p>
-          <Link to="/admin/acessos" className={styles.textLink}>
-            Gerenciar acessos <ArrowRight size={18} aria-hidden="true" />
-          </Link>
+          <CardActions context="Acesso controlado" primary={{ label: "Ver acessos", icon: ArrowRight, to: "/admin/acessos" }}>
+            <span className={styles.eyebrow}>ACESSO CONTROLADO</span>
+            <h2>A porta tem combinado.</h2>
+          </CardActions>
+          <p>Lista de autorização e convites ajudam a acompanhar quem pode entrar. Revogar um acesso pendente não suspende uma conta existente.</p>
         </Card>
       </div>
     </>
@@ -747,43 +745,16 @@ function UserEditor({
             </form>
           </Card>
           <Card>
-            <span className={styles.eyebrow}>ESTADO</span>
-            <StatusBadge tone={user.status === "ativo" ? "success" : "danger"}>
-              {statusName[user.status]}
-            </StatusBadge>
-            <p>
-              Suspender impede o acesso futuro à conta.
-            </p>
-            <div className={styles.actions}>
-              {user.status === "suspenso" ? (
-                <Button
-                  variant="secondary"
-                  disabled={mutation.isPending}
-                  onClick={() =>
-                    mutation.mutate({ kind: "status", status: "ativo" })
-                  }
-                >
-                  Reativar conta
-                </Button>
-              ) : (
-                <Button
-                  variant="secondary"
-                  disabled={mutation.isPending}
-                  onClick={() => setConfirm("suspenso")}
-                >
-                  Suspender conta
-                </Button>
-              )}
-              {demoMode && (
-                <Button
-                  variant="quiet"
-                  disabled={mutation.isPending}
-                  onClick={() => setConfirm("excluido")}
-                >
-                  Excluir na demo
-                </Button>
-              )}
-            </div>
+            <CardActions context={user.name} secondary={[
+              user.status === "suspenso"
+                ? { label: "Reativar", icon: Play, disabled: mutation.isPending, onClick: () => mutation.mutate({ kind: "status", status: "ativo" }) }
+                : { label: "Suspender", icon: Ban, disabled: mutation.isPending, destructive: true, onClick: () => setConfirm("suspenso") },
+              ...(demoMode ? [{ label: "Excluir na demo", icon: Trash2, disabled: mutation.isPending, destructive: true, onClick: () => setConfirm("excluido") }] : []),
+            ]}>
+              <span className={styles.eyebrow}>ESTADO</span>
+              <StatusBadge tone={user.status === "ativo" ? "success" : "danger"}>{statusName[user.status]}</StatusBadge>
+              <p>Suspender impede o acesso futuro à conta.</p>
+            </CardActions>
           </Card>
         </div>
       )}
@@ -885,38 +856,6 @@ function UserDetail() {
   if (query.isPending) return <Loading />;
   if (query.error) return <QueryError error={query.error} />;
   return <UserEditor key={id} {...query.data} />;
-}
-
-function AccessActions({ children }: { children: ReactNode }) {
-  return (
-    <details
-      className={styles.rowActions}
-      onToggle={(event) => {
-        if (event.currentTarget.open) {
-          event.currentTarget
-            .querySelector<HTMLElement>(".rowActionsMenu > :last-child")
-            ?.scrollIntoView({ block: "nearest" });
-        }
-      }}
-    >
-      <summary aria-label="Ações">
-        <Ellipsis size={18} aria-hidden="true" />
-        <span className={styles.rowActionsLabel}>Ações</span>
-      </summary>
-      <div
-        className={styles.rowActionsMenu}
-        onClick={(event) => {
-          if (event.target instanceof Element && event.target.closest("button")) {
-            const details = event.currentTarget.closest("details");
-            details?.removeAttribute("open");
-            details?.querySelector("summary")?.focus();
-          }
-        }}
-      >
-        {children}
-      </div>
-    </details>
-  );
 }
 
 function AccessPage() {
@@ -1098,9 +1037,16 @@ function AccessPage() {
                 )
                 .map((invite: Invitation) => (
                   <div
-                    className={`${styles.entry} ${styles.invitationEntry} ${invite.status === "pendente" ? styles.invitationWithActions : ""}`}
+                    className={styles.entry}
                     key={invite.id}
                   >
+                    <CardActions context={invite.email} secondary={invite.status === "pendente" ? [
+                      { label: "Testar cadastro", icon: ArrowRight, to: `/criar-conta?convite=${encodeURIComponent(invite.id)}` },
+                      { label: "Reenviar convite", icon: RotateCw, disabled: mutation.isPending, onClick: () => mutation.mutate({ kind: "resend", id: invite.id }) },
+                      { label: "Revogar convite", icon: Ban, destructive: true, disabled: mutation.isPending, onClick: () => setConfirmation({ kind: "revokeInvite", id: invite.id, email: invite.email }) },
+                    ] : invite.status === "expirado" ? [
+                      { label: "Reenviar", icon: RotateCw, disabled: mutation.isPending, onClick: () => mutation.mutate({ kind: "resend", id: invite.id }) },
+                    ] : []}>
                     <div>
                       <strong>{invite.email}</strong>
                       <small>
@@ -1119,55 +1065,7 @@ function AccessPage() {
                               : "Revogado"}
                       </small>
                     </div>
-                    <div className={styles.actions}>
-                      {invite.status === "pendente" ? (
-                        <AccessActions>
-                          <Link
-                            className={`${styles.rowActionItem} ${styles.demoAction}`}
-                            to={`/criar-conta?convite=${encodeURIComponent(invite.id)}`}
-                            aria-label={`Testar cadastro de ${invite.email}`}
-                            data-tooltip="Testar cadastro"
-                          >
-                            Testar cadastro
-                          </Link>
-                          <Button
-                            variant="quiet"
-                            className={styles.rowActionItem}
-                            aria-label={`Reenviar convite para ${invite.email}`}
-                            disabled={mutation.isPending}
-                            onClick={() =>
-                              mutation.mutate({ kind: "resend", id: invite.id })
-                            }
-                          >
-                            Reenviar convite
-                          </Button>
-                          <Button
-                            variant="quiet"
-                            className={`${styles.rowActionItem} ${styles.destructiveAction}`}
-                            aria-label={`Revogar convite de ${invite.email}`}
-                            disabled={mutation.isPending}
-                            onClick={() => setConfirmation({
-                              kind: "revokeInvite",
-                              id: invite.id,
-                              email: invite.email,
-                            })}
-                          >
-                            Revogar convite
-                          </Button>
-                        </AccessActions>
-                      ) : invite.status === "expirado" ? (
-                        <Button
-                          variant="quiet"
-                          aria-label={`Reenviar convite para ${invite.email}`}
-                          disabled={mutation.isPending}
-                          onClick={() =>
-                            mutation.mutate({ kind: "resend", id: invite.id })
-                          }
-                        >
-                          Reenviar convite
-                        </Button>
-                      ) : null}
-                    </div>
+                    </CardActions>
                   </div>
                 ))}
             </div>
@@ -1192,6 +1090,10 @@ function AccessPage() {
               <div className={styles.entryList}>
                 {access.data.allowlist.map((entry) => (
                   <div className={styles.entry} key={entry.id}>
+                    <CardActions context={entry.email} secondary={!entry.revokedAt ? [
+                      { label: "Testar cadastro", icon: ArrowRight, to: `/criar-conta?email=${encodeURIComponent(entry.email)}` },
+                      { label: "Revogar autorização", icon: Ban, destructive: true, disabled: mutation.isPending, onClick: () => setConfirmation({ kind: "revokeAllow", id: entry.id, email: entry.email }) },
+                    ] : []}>
                     <div>
                       <strong>{entry.email}</strong>
                       <small>
@@ -1200,33 +1102,7 @@ function AccessPage() {
                           : `Desde ${date(entry.addedAt)}`}
                       </small>
                     </div>
-                    {!entry.revokedAt && (
-                      <div className={styles.actions}>
-                        <AccessActions>
-                          <Link
-                            className={`${styles.rowActionItem} ${styles.demoAction}`}
-                            to={`/criar-conta?email=${encodeURIComponent(entry.email)}`}
-                            aria-label={`Testar cadastro de ${entry.email}`}
-                            data-tooltip="Testar cadastro"
-                          >
-                            Testar cadastro
-                          </Link>
-                          <Button
-                            variant="quiet"
-                            className={`${styles.rowActionItem} ${styles.destructiveAction}`}
-                            aria-label={`Revogar autorização de ${entry.email}`}
-                            disabled={mutation.isPending}
-                            onClick={() => setConfirmation({
-                              kind: "revokeAllow",
-                              id: entry.id,
-                              email: entry.email,
-                            })}
-                          >
-                            Revogar autorização
-                          </Button>
-                        </AccessActions>
-                      </div>
-                    )}
+                    </CardActions>
                   </div>
                 ))}
               </div>
@@ -1785,7 +1661,7 @@ function WaitlistAdminPage() {
                     <td>{entry.channel === "email" ? <><Mail size={16} aria-hidden="true" /> E-mail</> : <><Phone size={16} aria-hidden="true" /> WhatsApp</>}</td>
                     <td>{entry.utmCampaign ?? "Sem campanha"}</td>
                     <td>{dateTime(entry.createdAt)}</td>
-                    <td><Button variant="quiet" onClick={() => setTarget(entry)}><Trash2 size={17} aria-hidden="true" /> Remover</Button></td>
+                    <td className={styles.tableActions}><Button variant="secondary" aria-label={`Remover: ${entry.contact}`} onClick={() => setTarget(entry)}><Trash2 size={17} aria-hidden="true" /> Remover</Button></td>
                   </tr>
                 ))}</tbody>
               </table>
@@ -1997,11 +1873,11 @@ function AdminInner({ themeControl }: { themeControl: ReactNode }) {
                   {themeControl}
                   <Button
                     className={styles.logout}
-                    variant="quiet"
+                    variant="secondary"
                     disabled={logout.isPending}
                     onClick={() => logout.mutate()}
                   >
-                    <LogOut size={18} aria-hidden="true" /> Sair
+                    <LogOut size={20} aria-hidden="true" /> Sair
                   </Button>
                 </>
               }
@@ -2021,11 +1897,11 @@ function AdminInner({ themeControl }: { themeControl: ReactNode }) {
               logout={
                 <Button
                   className={styles.logout}
-                  variant="quiet"
+                  variant="secondary"
                   disabled={logout.isPending}
                   onClick={() => logout.mutate()}
                 >
-                  <LogOut size={18} aria-hidden="true" /> Sair
+                  <LogOut size={20} aria-hidden="true" /> Sair
                 </Button>
               }
             />

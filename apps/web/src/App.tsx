@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { Link, NavLink, Navigate, Route, Routes, useLocation } from "react-router";
-import { ArrowRight, Check, Moon, RotateCcw, Sun } from "lucide-react";
+import { ArrowRight, Check, Monitor, Moon, Pencil, RotateCcw, SkipForward, Sun, Trash2 } from "lucide-react";
 import { useRegisterSW } from "virtual:pwa-register/react";
 import { tokens } from "@chega-de-briga/design-system/tokens.native";
 import {
@@ -9,11 +9,11 @@ import {
   Card,
   DatePicker,
   EmptyState,
-  IconButton,
   Select,
   StatusBadge,
   TextField,
 } from "./components/ui";
+import { CardActions } from "./components/CardActions";
 import { MobileMenu, type MobileMenuItem } from "./components/MobileMenu";
 import { BottomSheet, ConfirmDialog } from "./components/ResidentOverlays";
 import { ConsoleLoading } from "./components/ConsoleLoading";
@@ -228,34 +228,34 @@ function Gallery() {
           <span className={styles.panelTag}>TAREFA / EXEMPLO</span>
           <h2>O essencial primeiro</h2>
           <div className={styles.taskRow}>
-            <span className={styles.taskContent}>
-              <strong>Lavar a louça</strong>
-              <small>{done ? "Júlia" : "Hoje, até 19h · Júlia"}</small>
-            </span>
-            {done ? (
-              <StatusBadge tone="success">Concluída</StatusBadge>
-            ) : (
-              <Button onClick={() => {
-                setDone(true);
-                showToast("Tarefa concluída", {
-                  action: { label: "Desfazer", onClick: () => setDone(false) },
-                });
-              }}>
-                <Check size={18} aria-hidden="true" /> Concluir
-              </Button>
-            )}
-            <IconButton
-              label="Recomeçar exemplo"
-              icon={<RotateCcw aria-hidden="true" />}
-              onClick={() => {
-                setDone(false);
-                showToast("Exemplo reiniciado");
-              }}
-            />
+            <CardActions context="Lavar a louça" primary={!done ? { label: "Concluir", icon: Check, onClick: () => {
+              setDone(true);
+              showToast("Tarefa concluída", { action: { label: "Desfazer", onClick: () => setDone(false) } });
+            } } : undefined} secondary={[{ label: "Recomeçar", icon: RotateCcw, onClick: () => { setDone(false); showToast("Exemplo reiniciado"); } }]}>
+              <span className={styles.taskContent}><strong>Lavar a louça</strong><small>{done ? "Júlia" : "Hoje, até 19h · Júlia"}</small>{done && <StatusBadge tone="success">Concluída</StatusBadge>}</span>
+            </CardActions>
           </div>
           <p className={styles.note}>
             Conclua para ver o Toast; Desfazer restaura a tarefa. O ícone reinicia este exemplo.
           </p>
+        </Card>
+        <Card>
+          <span className={styles.panelTag}>AÇÕES DOS CARDS</span>
+          <h2>Sempre ao lado</h2>
+          <div className={styles.actionExamples}>
+            <CardActions context="Ação principal isolada" primary={{ label: "Concluir", icon: Check, onClick: () => showToast("Exemplo concluído.") }}><strong>Ação principal isolada</strong><p>Ícone e texto em qualquer largura.</p></CardActions>
+            <CardActions context="Organizar os armários da cozinha e separar as embalagens para reciclagem" primary={{ label: "Concluir", icon: Check, onClick: () => showToast("Exemplo concluído.") }} secondary={[{ label: "Editar", icon: Pencil, to: "/componentes#gallery-title" }]}><strong>Organizar os armários da cozinha e separar as embalagens para reciclagem</strong><p>Principal e uma secundária.</p></CardActions>
+            <CardActions context="Rotina de exemplo" primary={{ label: "Concluir", icon: Check, onClick: () => showToast("Exemplo concluído.") }} secondary={[
+              { label: "Editar", icon: Pencil, onClick: () => showToast("Edição de exemplo.") },
+              { label: "Pular esta ocorrência", icon: SkipForward, disabled: true, onClick: () => {} },
+              { label: "Encerrar rotina", icon: Trash2, destructive: true, onClick: () => setConfirmOpen(true) },
+            ]}><strong>Rotina de exemplo</strong><p>Principal e várias secundárias.</p></CardActions>
+            <CardActions context="Convite indisponível" secondary={[{ label: "Reenviar", icon: RotateCcw, disabled: true, onClick: () => {} }]}><strong>Convite indisponível</strong><p>Uma secundária isolada.</p></CardActions>
+            <CardActions context="Gestão sem principal" secondary={[
+              { label: "Editar", icon: Pencil, onClick: () => showToast("Edição de exemplo.") },
+              { label: "Excluir", icon: Trash2, destructive: true, onClick: () => setConfirmOpen(true) },
+            ]}><strong>Gestão sem principal</strong><p>Secundárias reunidas no menu.</p></CardActions>
+          </div>
         </Card>
         <Card>
           <span className={styles.panelTag}>PESSOAS E ESTADOS</span>
@@ -394,30 +394,16 @@ function ThemeActions({
   change: (next: ThemePreference) => void;
   compact?: boolean;
 }) {
-  const next = theme === "dark" ? "light" : "dark";
-  const label = `Ativar modo ${next === "dark" ? "escuro" : "claro"}`;
-  return (
-    <div className={`${styles.themeActions} ${compact ? styles.themeActionsCompact : ""}`}>
-      <button
-        type="button"
-        className={styles.themeToggle}
-        aria-label={label}
-        data-tooltip={label}
-        onClick={() => change(next)}
-      >
-        {theme === "dark" ? <Sun size={21} aria-hidden="true" /> : <Moon size={21} aria-hidden="true" />}
-        <span>{label}</span>
-      </button>
-      <Select
-        label="Tema"
-        variant="compact"
-        className={styles.themeChoice}
-        value={preference}
-        options={themeOptions}
-        onChange={(value) => change(value as ThemePreference)}
-      />
-    </div>
-  );
+  const Icon = preference === "system" ? Monitor : theme === "dark" ? Moon : Sun;
+  return <Select
+    label="Tema"
+    variant="action"
+    icon={<Icon size={20} aria-hidden="true" />}
+    className={`${styles.themeActions} ${compact ? styles.themeActionsCompact : ""}`}
+    value={preference}
+    options={themeOptions}
+    onChange={(value) => change(value as ThemePreference)}
+  />;
 }
 
 const publicMenuItems: MobileMenuItem[] = [
@@ -570,7 +556,6 @@ export function App() {
                         theme={theme}
                         preference={preference}
                         change={change}
-                        compact
                       />
                     }
                   />;

@@ -1,6 +1,10 @@
 import { useEffect, useState, type FormEvent } from "react";
 import {
   ArrowLeft,
+  Download,
+  UserRoundPlus,
+  ShieldCheck,
+  Ban,
   Bell,
   CalendarDays,
   Check,
@@ -32,6 +36,7 @@ import {
   StatusBadge,
   TextField,
 } from "../components/ui";
+import { CardActions } from "../components/CardActions";
 import { BottomSheet } from "../components/ResidentOverlays";
 import { useToast } from "../components/Toast";
 import { errorMessage } from "../api/http";
@@ -76,6 +81,9 @@ export function TaskRow({
   const isOverdue = Boolean(task.dueDate && task.dueDate < dateKey());
   return (
     <article className={styles.taskRow}>
+      <CardActions context={task.title}
+        primary={{ label: "Concluir", icon: Check, onClick: () => onComplete(task.id) }}
+        secondary={!taskAssignee(task) ? [{ label: "Assumir", icon: UserRoundPlus, onClick: () => onAssume(task.id) }] : []}>
       <div className={styles.taskCopy}>
         <Link className={styles.taskTitle} to={`/casa/tarefas/${task.id}?retorno=${encodeURIComponent(returnTo)}`}>{task.title}</Link>
         <div className={styles.taskMeta}>
@@ -91,14 +99,7 @@ export function TaskRow({
           </div>
         )}
       </div>
-      <div className={styles.taskActions}>
-        {!taskAssignee(task) && (
-          <Button variant="secondary" onClick={() => onAssume(task.id)}>Assumir</Button>
-        )}
-        <Button variant="primary" onClick={() => onComplete(task.id)}>
-          <Check size={17} aria-hidden="true" /> Concluir
-        </Button>
-      </div>
+      </CardActions>
     </article>
   );
 }
@@ -136,13 +137,11 @@ export function HomeScreen({
       </section>
 
       {showFirstUse && <Card className={styles.firstUseCard}>
-        <span className={styles.eyebrow}>PRIMEIRO COMBINADO</span>
-        <h2>Comece pelo que já precisa acontecer.</h2>
+        <CardActions context="Primeiro combinado" primary={{ label: "Criar tarefa", icon: Plus, to: "/casa/tarefas/nova" }} secondary={[{ label: "Adicionar item", icon: ShoppingBasket, to: "/casa/compras" }]}>
+          <span className={styles.eyebrow}>PRIMEIRO COMBINADO</span>
+          <h2>Comece pelo que já precisa acontecer.</h2>
+        </CardActions>
         <p>Registre uma tarefa da casa ou anote algo que está faltando. O combinado fica visível para todo mundo.</p>
-        <div className={styles.firstUseActions}>
-          <Link to="/casa/tarefas/nova"><Plus size={18} aria-hidden="true" /> Criar tarefa ou rotina</Link>
-          <Link to="/casa/compras"><ShoppingBasket size={18} aria-hidden="true" /> Adicionar item de compras</Link>
-        </div>
       </Card>}
 
       <section className={styles.contentSection} aria-labelledby="home-tasks-title">
@@ -169,13 +168,13 @@ export function HomeScreen({
       </section>
 
       <section className={styles.shoppingSummary} aria-labelledby="home-shopping-title">
-        <div className={styles.summaryIcon}><ShoppingBasket size={24} aria-hidden="true" /></div>
-        <div className={styles.summaryCopy}>
-          <span className={styles.eyebrow}>REPOSIÇÃO DA CASA</span>
-          <h2 id="home-shopping-title">{items.length} {items.length === 1 ? "item na lista" : "itens na lista"}</h2>
-          <p>{urgentItems ? `${urgentItems} para comprar antes da próxima ida maior` : "Nenhum item marcado como urgente"}</p>
-        </div>
-        <Link className={styles.summaryLink} to="/casa/compras">Abrir lista <span aria-hidden="true">→</span></Link>
+        <CardActions context="Lista de compras" primary={{ label: "Abrir lista", icon: ShoppingBasket, to: "/casa/compras" }}>
+          <div className={styles.summaryCopy}>
+            <span className={styles.eyebrow}>REPOSIÇÃO DA CASA</span>
+            <h2 id="home-shopping-title">{items.length} {items.length === 1 ? "item na lista" : "itens na lista"}</h2>
+            <p>{urgentItems ? `${urgentItems} para comprar antes da próxima ida maior` : "Nenhum item marcado como urgente"}</p>
+          </div>
+        </CardActions>
       </section>
 
       <section className={styles.quickActions} aria-label="Ações rápidas">
@@ -316,6 +315,12 @@ export function TaskDetailScreen({
     <div className={styles.screenStack}>
       <button className={styles.backButton} type="button" onClick={onBack}><ArrowLeft size={18} aria-hidden="true" /> Voltar às tarefas</button>
       <Card className={styles.detailCard}>
+        <CardActions context={task.title}
+          primary={!task.completed && !task.skipped ? { label: "Concluir", icon: Check, onClick: onComplete } : undefined}
+          secondary={[
+            ...(!task.completed && !task.skipped && !taskAssignee(task) ? [{ label: "Assumir", icon: UserRoundPlus, onClick: onAssume }] : []),
+            { label: "Editar", icon: Pencil, onClick: onEdit },
+          ]}>
         <div className={styles.detailHeading}>
           <span className={styles.eyebrow}>{task.repeat === "once" ? "TAREFA" : "ROTINA"}</span>
           <h2>{task.title}</h2>
@@ -324,6 +329,7 @@ export function TaskDetailScreen({
           {task.ended && <StatusBadge tone="warning">Rotina encerrada</StatusBadge>}
           <p>{task.completionScope || "Sem instruções adicionais."}</p>
         </div>
+        </CardActions>
         <dl className={styles.detailFacts}>
           <div><dt>Próxima ocorrência</dt><dd>{task.dueDate ? fullDate(task.dueDate) : "Sem data"}</dd></div>
           <div><dt>Responsabilidade</dt><dd>{taskAssigneeLabel(task, members)}</dd></div>
@@ -331,23 +337,20 @@ export function TaskDetailScreen({
           {task.activeTime && <div><dt>Tempo ativo típico</dt><dd>{task.activeTime}</dd></div>}
           {task.paused && <div><dt>Estado da rotina</dt><dd><StatusBadge tone="warning">Pausada</StatusBadge></dd></div>}
         </dl>
-        <div className={styles.detailActions}>
-          {!task.completed && !task.skipped && !taskAssignee(task) && <Button variant="secondary" onClick={onAssume}>Assumir tarefa</Button>}
-          {!task.completed && !task.skipped && <Button onClick={onComplete}><Check size={18} aria-hidden="true" /> Concluir</Button>}
-          <Button variant="secondary" onClick={onEdit}><Pencil size={17} aria-hidden="true" /> Editar</Button>
-        </div>
+
       </Card>
       {task.repeat !== "once" && !task.ended && (
         <section className={styles.contentSection} aria-labelledby="routine-actions-title">
-          <div className={styles.sectionHeadingCompact}><h2 id="routine-actions-title">Esta rotina</h2></div>
           <Card className={styles.actionList}>
-            <Button variant="quiet" onClick={onSkip}><SkipForward size={17} aria-hidden="true" /> Pular esta ocorrência</Button>
-            {task.paused
-              ? <Button variant="quiet" onClick={onResume}><Play size={17} aria-hidden="true" /> Retomar rotina</Button>
-              : <Button variant="quiet" onClick={onPause}><Pause size={17} aria-hidden="true" /> Pausar rotina</Button>}
-            <Button variant="quiet" onClick={onEnd}><Trash2 size={17} aria-hidden="true" /> Encerrar rotina</Button>
+            <CardActions context={`Rotina ${task.title}`} secondary={[
+              { label: "Pular esta ocorrência", icon: SkipForward, onClick: onSkip },
+              task.paused ? { label: "Retomar rotina", icon: Play, onClick: onResume } : { label: "Pausar rotina", icon: Pause, onClick: onPause },
+              { label: "Encerrar rotina", icon: Trash2, destructive: true, onClick: onEnd },
+            ]}>
+              <h2 id="routine-actions-title">Esta rotina</h2>
+              <p className={styles.helper}>Pular resolve só este ciclo; a próxima data segue a frequência programada.</p>
+            </CardActions>
           </Card>
-          <p className={styles.helper}>Pular resolve só este ciclo; a próxima data segue a frequência programada.</p>
         </section>
       )}
     </div>
@@ -515,14 +518,12 @@ export function ShoppingScreen({
               <Card className={styles.listCard}>
                 {group.data.map((item) => (
                   <article className={styles.shoppingRow} key={item.id}>
+                    <CardActions context={item.name} primary={{ label: "Comprado", icon: Check, onClick: () => onBought(item.id) }} secondary={[{ label: "Editar", icon: Pencil, onClick: () => onEdit(item) }]}>
                     <button className={styles.shoppingItemName} type="button" onClick={() => onEdit(item)}>
                       <strong>{item.name}</strong>
                       <span>{item.quantity || "Quantidade não informada"}</span>
                     </button>
-                    <div className={styles.shoppingActions}>
-                      <Button variant="quiet" onClick={() => onEdit(item)}><Pencil size={16} aria-hidden="true" /> Editar</Button>
-                      <Button onClick={() => onBought(item.id)}><Check size={17} aria-hidden="true" /> Comprado</Button>
-                    </div>
+                    </CardActions>
                   </article>
                 ))}
               </Card>
@@ -637,8 +638,14 @@ export function ProfileScreen({
         <TextField id="reminder-time" label="Horário" type="time" value={reminderTime} onChange={(event) => setReminderTime(event.target.value)} />
         <div className={styles.preferenceActions}><Button variant="secondary" disabled={savingReminder} onClick={() => void saveReminderTime()}>Salvar horário</Button><Button disabled={savingReminder} onClick={() => void toggleReminder()}>{savingReminder ? "Salvando…" : reminderEnabled ? "Desativar notificações" : "Ativar notificações"}</Button></div>
       </Card>
-      <Card className={styles.preferenceCard}><h2>Seus dados</h2><p>Baixe uma cópia dos dados da sua conta e das casas em que participa.</p><Button variant="secondary" onClick={() => void exportData()}>Baixar meus dados</Button><p><Link to="/privacidade">Aviso de privacidade</Link></p><p><Link to="/casa/perfil/excluir">Excluir conta</Link></p></Card>
-      <Button variant="quiet" className={styles.logoutButton} onClick={onLogout}><LogOut size={18} aria-hidden="true" /> Sair da conta</Button>
+      <Card className={styles.preferenceCard}>
+        <CardActions context="Seus dados" primary={{ label: "Baixar dados", icon: Download, onClick: () => void exportData() }} secondary={[{ label: "Excluir conta", icon: Trash2, destructive: true, to: "/casa/perfil/excluir" }]}>
+          <h2>Seus dados</h2>
+        </CardActions>
+        <p>Baixe uma cópia dos dados da sua conta e das casas em que participa.</p>
+        <p><Link to="/privacidade">Aviso de privacidade</Link></p>
+      </Card>
+      <Button variant="secondary" className={styles.logoutButton} onClick={onLogout}><LogOut size={20} aria-hidden="true" /> Sair da conta</Button>
       {import.meta.env.MODE === "demo" && <p className={styles.helper}>A sessão e estas alterações são locais. Nenhum dado de conta é enviado.</p>}
     </div>
   );
@@ -670,10 +677,8 @@ export function HouseScreen({
   canLeave,
   responsibleCount,
   onRename,
-  onMembers,
   onLeave,
   onDelete,
-  onCreateHouse,
 }: {
   name: string;
   role: HouseholdRole;
@@ -681,29 +686,36 @@ export function HouseScreen({
   canLeave: boolean;
   responsibleCount: number;
   onRename: (name: string) => void;
-  onMembers: () => void;
   onLeave: () => void;
   onDelete: () => void;
-  onCreateHouse: () => void;
 }) {
   const [renameOpen, setRenameOpen] = useState(false);
   const [draft, setDraft] = useState(name);
   return (
     <div className={styles.screenStack}>
       <Card className={styles.houseCard}>
-        <span className={styles.eyebrow}>CASA COMPARTILHADA</span>
-        <h2>{name}</h2>
-        <p>Seu papel: {role === "responsavel" ? "Responsável" : "Morador"}</p>
-        <Button variant="secondary" onClick={() => { setDraft(name); setRenameOpen(true); }}><Pencil size={17} aria-hidden="true" /> Editar nome</Button>
-        <Button variant="secondary" onClick={onMembers}><UsersRound size={18} aria-hidden="true" /> Moradores e convites</Button>
+        <CardActions context={name} secondary={[
+          { label: "Moradores e convites", icon: UsersRound, to: "/casa/moradores" },
+          { label: "Editar nome", icon: Pencil, onClick: () => { setDraft(name); setRenameOpen(true); } },
+        ]}>
+          <span className={styles.eyebrow}>CASA COMPARTILHADA</span>
+          <h2>{name}</h2>
+          <p>Seu papel: {role === "responsavel" ? "Responsável" : "Morador"}</p>
+        </CardActions>
       </Card>
-      {canCreate && <Card className={styles.houseCard}><h2>Outra casa?</h2><p>Você pode criar uma segunda casa usando a mesma conta.</p><Button variant="secondary" onClick={onCreateHouse}><House size={18} aria-hidden="true" /> Criar outra casa</Button></Card>}
+      {canCreate && <Card className={styles.houseCard}>
+        <CardActions context="Outra casa" secondary={[{ label: "Criar casa", icon: House, to: "/criar-casa" }]}><h2>Outra casa?</h2></CardActions>
+        <p>Você pode criar uma segunda casa usando a mesma conta.</p>
+      </Card>}
       <section className={styles.dangerZone} aria-labelledby="house-exit-title">
-        <h2 id="house-exit-title">Ações da casa</h2>
-        {!canLeave && <p>Antes de sair, transfira a responsabilidade para outro morador.</p>}
-        <Button variant="quiet" disabled={!canLeave} onClick={onLeave}>Sair desta casa</Button>
-        {role === "responsavel" && <Button variant="quiet" onClick={onDelete}><Trash2 size={17} aria-hidden="true" /> Excluir casa</Button>}
-        {role === "responsavel" && responsibleCount < 2 && <small>Excluir a casa remove permanentemente os dados compartilhados.</small>}
+        <CardActions context={name} secondary={[
+          { label: "Sair da casa", icon: LogOut, disabled: !canLeave, onClick: onLeave },
+          ...(role === "responsavel" ? [{ label: "Excluir casa", icon: Trash2, destructive: true, onClick: onDelete }] : []),
+        ]}>
+          <h2 id="house-exit-title">Ações da casa</h2>
+          {!canLeave && <p>Antes de sair, transfira a responsabilidade para outro morador.</p>}
+          {role === "responsavel" && responsibleCount < 2 && <small>Excluir a casa remove permanentemente os dados compartilhados.</small>}
+        </CardActions>
       </section>
       <BottomSheet open={renameOpen} onClose={() => setRenameOpen(false)} title="Nome da casa" footer={<><Button variant="secondary" onClick={() => setRenameOpen(false)}>Cancelar</Button><Button onClick={() => { if (draft.trim()) { onRename(draft.trim()); setRenameOpen(false); } }}>Salvar nome</Button></>}>
         <TextField id="house-name-edit" label="Nome da casa" maxLength={60} required value={draft} onChange={(event) => setDraft(event.target.value)} />
@@ -752,20 +764,26 @@ export function MembersScreen({
         <Card className={styles.memberList}>
           {data.members.map((member) => (
             <article className={styles.memberRow} key={member.id}>
-              <Avatar name={member.name} initials={initials(member.name)} tone={member.id === userId ? "blue" : "sun"} />
-              <div><strong>{member.name}{member.id === userId ? " · Você" : ""}</strong><span>{member.email ?? "Morador da casa"}</span></div>
-              <span className={styles.memberRole}>{member.role === "responsavel" ? "Responsável" : "Morador"}</span>
-              {role === "responsavel" && member.id !== userId && <div className={styles.memberActions}>
-                {member.role !== "responsavel" && <Button variant="quiet" onClick={() => onTransfer(member.id)}>Tornar responsável</Button>}
-                <IconButton label={`Remover ${member.name}`} icon={<Trash2 size={18} aria-hidden="true" />} onClick={() => onRemove(member.id)} />
-              </div>}
+              <CardActions context={member.name} secondary={role === "responsavel" && member.id !== userId ? [
+                ...(member.role !== "responsavel" ? [{ label: "Tornar responsável", icon: ShieldCheck, onClick: () => onTransfer(member.id) }] : []),
+                { label: "Remover", icon: Trash2, destructive: true, onClick: () => onRemove(member.id) },
+              ] : []}>
+                <div className={styles.memberIdentity}>
+                  <Avatar name={member.name} initials={initials(member.name)} tone={member.id === userId ? "blue" : "sun"} />
+                  <div><strong>{member.name}{member.id === userId ? " · Você" : ""}</strong><span>{member.email ?? "Morador da casa"}</span><span className={styles.memberRole}>{member.role === "responsavel" ? "Responsável" : "Morador"}</span></div>
+                </div>
+              </CardActions>
             </article>
           ))}
         </Card>
       </section>
       <section className={styles.contentSection} aria-labelledby="invites-title">
         <div className={styles.sectionHeadingCompact}><h2 id="invites-title">Convites pendentes</h2><span>{data.invites.length}</span></div>
-        {data.invites.length ? <Card className={styles.memberList}>{data.invites.map((invite) => <article className={styles.inviteRow} key={invite.id}><div><strong>{invite.email}</strong><StatusBadge tone="warning">{import.meta.env.MODE === "demo" ? "Não enviado · demonstração" : "Link enviado"}</StatusBadge></div>{role === "responsavel" && <Button variant="quiet" onClick={() => onRevoke(invite.id)}>Revogar</Button>}</article>)}</Card> : <p className={styles.helper}>Nenhum convite pendente.</p>}
+        {data.invites.length ? <Card className={styles.memberList}>{data.invites.map((invite) => <article className={styles.inviteRow} key={invite.id}>
+          <CardActions context={invite.email} secondary={role === "responsavel" ? [{ label: "Revogar", icon: Ban, destructive: true, onClick: () => onRevoke(invite.id) }] : []}>
+            <div className={styles.inviteCopy}><strong>{invite.email}</strong><StatusBadge tone="warning">{import.meta.env.MODE === "demo" ? "Não enviado · demonstração" : "Link enviado"}</StatusBadge></div>
+          </CardActions>
+        </article>)}</Card> : <p className={styles.helper}>Nenhum convite pendente.</p>}
       </section>
       {import.meta.env.MODE === "demo" && <p className={styles.infoNote}>Os moradores e convites acima são dados locais de demonstração; alterações não chegam a outras pessoas.</p>}
     </div>

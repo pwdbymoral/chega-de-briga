@@ -1,0 +1,20 @@
+.row { container: card-actions / inline-size; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0.75rem; min-width: 0; width: 100%; }
+.groupOnly { grid-template-columns: minmax(0, 1fr); }
+.copy { min-width: 0; overflow-wrap: anywhere; }
+.actions { display: flex; flex-wrap: nowrap; align-items: center; justify-content: flex-end; gap: 0.5rem; }
+.action { flex: none; min-width: 48px; min-height: 48px; padding-inline: 0.75rem; white-space: nowrap; }
+.action svg { flex: none; }
+.destructive { color: var(--color-danger-text); border-color: var(--color-danger-text); }
+.menu { position: fixed; inset: auto; z-index: 100; display: grid; gap: 0.2rem; width: max-content; max-width: min(20rem, calc(100vw - 16px)); max-height: calc(100dvh - 16px); margin: 0; padding: 0.35rem; overflow: auto; border: var(--stroke) solid var(--color-border); border-radius: var(--radius-control); background: var(--color-surface); color: var(--color-text); box-shadow: 4px 4px 0 var(--color-shadow); }
+.menuItem { width: 100%; justify-content: flex-start; border: 0; border-radius: calc(var(--radius-control) - 0.25rem); color: var(--color-text); font: inherit; text-align: left; white-space: normal; }
+.menuItem:not(:disabled):hover { background: var(--color-surface-raised); box-shadow: none; transform: none; }
+.menuItem:focus-visible { outline-offset: -3px; }
+.menuItem.destructive { color: var(--color-danger-text); border-top: 1px solid var(--color-border-soft); }
+@media (max-width: 650px) {
+  .paired > .action, .more { width: 48px; padding: 0; }
+  .paired > .action > .label, .more > .label { display: none; }
+}
+@container card-actions (width < 32rem) {
+  .paired > .action, .more { width: 48px; padding: 0; }
+  .paired > .action > .label, .more > .label { display: none; }
+}

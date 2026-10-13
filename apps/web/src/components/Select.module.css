@@ -23,7 +23,14 @@
   color: var(--color-text);
   text-align: left;
   cursor: pointer;
+  font: inherit;
 }
+.trigger:not(.actionTrigger):hover { transform: none; box-shadow: none; }
+.action { display: block; }
+.action .label { display: none; }
+.actionTrigger { justify-content: flex-start; gap: 0.55rem; border-color: var(--color-primary); border-radius: var(--radius-pill); color: var(--color-primary); padding: 0.75rem 1.25rem; font: 700 0.875rem/1.2 var(--font-personality); white-space: nowrap; }
+.actionLabel { min-width: 0; }
+.action .options { width: max(100%, 140px); }
 .trigger:disabled {
   opacity: 0.55;
   cursor: not-allowed;

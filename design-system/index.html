@@ -19,6 +19,9 @@
   </head>
   <body>
     <svg class="icon-sprite" aria-hidden="true" width="0" height="0" xmlns="http://www.w3.org/2000/svg">
+      <symbol id="icon-monitor" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" /><path d="M8 21h8m-4-4v4" /></symbol>
+      <symbol id="icon-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /></symbol>
+      <symbol id="icon-edit" viewBox="0 0 24 24"><path d="m16 3 5 5-13 13H3v-5ZM14 5l5 5" /></symbol>
       <symbol id="icon-moon" viewBox="0 0 24 24"><path d="M20.9 13A9 9 0 0 1 11 3.1 9 9 0 1 0 20.9 13Z" /></symbol>
       <symbol id="icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" /><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42" /></symbol>
       <symbol id="icon-arrow-up-right" viewBox="0 0 24 24"><path d="M7 17 17 7M7 7h10v10" /></symbol>
@@ -50,10 +53,17 @@
           <a href="#produto">Produto</a>
         </nav>
       </details>
-      <button class="theme-toggle" type="button" id="theme-toggle">
-        <span class="theme-glyph" aria-hidden="true"><svg class="ui-icon"><use href="#icon-moon" /></svg></span>
-        <span class="theme-label">Modo escuro</span>
-      </button>
+      <div class="theme-control">
+        <button class="demo-button secondary-button theme-toggle" type="button" id="theme-toggle" aria-haspopup="listbox" aria-expanded="false" aria-controls="theme-options">
+          <span class="theme-glyph" aria-hidden="true"><svg class="ui-icon"><use href="#icon-monitor" /></svg></span>
+          <span class="theme-label">Tema: Sistema</span>
+        </button>
+        <div id="theme-options" class="theme-options" role="listbox" aria-label="Tema" hidden>
+          <button type="button" role="option" data-theme-value="system">Sistema</button>
+          <button type="button" role="option" data-theme-value="light">Claro</button>
+          <button type="button" role="option" data-theme-value="dark">Escuro</button>
+        </div>
+      </div>
     </header>
 
     <main id="conteudo">
@@ -138,9 +148,17 @@
         <div class="component-grid">
           <article class="component-panel buttons-panel"><span class="panel-tag">AÇÕES</span><h3>Botões com intenção</h3><div class="button-row"><button class="demo-button primary-button" type="button">Criar tarefa <svg class="ui-icon" aria-hidden="true"><use href="#icon-arrow-up-right" /></svg></button><button class="demo-button secondary-button" type="button">Ver detalhes</button><button class="demo-button text-button" type="button">Agora não</button><button class="demo-button primary-button" type="button" disabled>Indisponível</button></div><div class="icon-button-example"><button class="demo-icon-button" type="button" aria-label="Fechar" title="Fechar" data-tooltip="Fechar"><svg class="ui-icon" aria-hidden="true"><use href="#icon-x" /></svg></button><span>Exemplo visual de uma ação com ícone: Fechar.</span></div></article>
           <article class="component-panel field-panel"><span class="panel-tag">CAMPOS</span><h3>Perguntar sem enrolar</h3><label for="demo-task">Nome da tarefa</label><input id="demo-task" type="text" placeholder="Ex.: tirar o lixo" aria-describedby="task-help" /><p class="field-help" id="task-help">Dê um nome que todo mundo entenda.</p><label for="demo-due">Prazo</label><input id="demo-due" class="input-error" type="text" value="ontem, talvez" aria-invalid="true" aria-describedby="due-error" /><p class="field-error" id="due-error">Informe uma data válida para o prazo.</p></article>
-          <article class="component-panel task-panel"><span class="panel-tag">TAREFAS</span><h3>O essencial primeiro</h3><article class="task-card"><span class="task-content"><strong>Lavar a louça</strong><small>Hoje, até 19h · Júlia</small></span><button class="demo-button primary-button task-complete" type="button"><svg class="ui-icon" aria-hidden="true"><use href="#icon-check" /></svg>Concluir</button></article><article class="task-card"><span class="task-content"><strong>Levar o lixo</strong><small>Caio</small></span><span class="status status-success"><svg class="ui-icon" aria-hidden="true"><use href="#icon-check" /></svg>Concluída</span></article><p class="field-help">Concluir é uma ação principal com rótulo.</p></article>
+          <article class="component-panel task-panel"><span class="panel-tag">TAREFAS</span><h3>O essencial primeiro</h3><article class="task-card"><span class="task-content"><strong>Lavar a louça</strong><small>Hoje, até 19h · Júlia</small></span><button class="demo-button primary-button task-complete" type="button"><svg class="ui-icon" aria-hidden="true"><use href="#icon-check" /></svg>Concluir</button></article><article class="task-card"><span class="task-content"><strong>Levar o lixo</strong><small>Caio</small></span><span class="status status-success"><svg class="ui-icon" aria-hidden="true"><use href="#icon-check" /></svg>Concluída</span></article><p class="field-help">Ação principal isolada e estado de conclusão.</p></article>
           <article class="component-panel status-panel"><span class="panel-tag">PESSOAS E ESTADOS</span><h3>Sem placar de culpa</h3><div class="avatar-row" role="group" aria-label="Participantes: Júlia, Caio e Lia"><span class="avatar avatar-blue" aria-hidden="true">JU</span><span class="avatar avatar-lilac" aria-hidden="true">CA</span><span class="avatar avatar-sun" aria-hidden="true">LI</span><span class="avatar-caption">a casa toda</span></div><div class="status-row"><span class="status status-success"><svg class="ui-icon" aria-hidden="true"><use href="#icon-check" /></svg>Em dia</span><span class="status status-warning"><svg class="ui-icon" aria-hidden="true"><use href="#icon-clock" /></svg>Vence hoje</span><span class="status status-danger"><svg class="ui-icon" aria-hidden="true"><use href="#icon-alert" /></svg>Passou do prazo</span></div></article>
         </div>
+        <article class="component-panel action-panel"><span class="panel-tag">AÇÕES DE CARDS</span><h3>Sempre ao lado</h3>
+          <div class="action-specimen"><div class="task-content"><strong>Lavar a louça</strong><small>Só principal</small></div><div class="card-actions"><button class="demo-button primary-button" type="button" aria-label="Concluir" title="Concluir"><svg class="ui-icon" aria-hidden="true"><use href="#icon-check" /></svg><span>Concluir</span></button></div></div>
+          <div class="action-specimen"><div class="task-content"><strong>Comprar o café que a casa combinou para a semana</strong><small>Principal + secundária</small></div><div class="card-actions paired"><button class="demo-button primary-button" type="button" aria-label="Comprado" title="Comprado"><svg class="ui-icon" aria-hidden="true"><use href="#icon-check" /></svg><span>Comprado</span></button><button class="demo-button secondary-button" type="button" aria-label="Editar" title="Editar"><svg class="ui-icon" aria-hidden="true"><use href="#icon-edit" /></svg><span>Editar</span></button></div></div>
+          <div class="action-specimen"><div class="task-content"><strong>Louça em revezamento</strong><small>Principal + várias secundárias</small></div><div class="card-actions paired"><button class="demo-button primary-button" type="button" aria-label="Concluir" title="Concluir"><svg class="ui-icon" aria-hidden="true"><use href="#icon-check" /></svg><span>Concluir</span></button><button class="demo-button secondary-button" type="button" aria-label="Mais ações" title="Mais ações"><svg class="ui-icon" aria-hidden="true"><use href="#icon-more" /></svg><span>Mais ações</span></button></div></div>
+          <div class="action-specimen"><div class="task-content"><strong>convite.com.nome.longo@example.test</strong><small>Só uma secundária</small></div><div class="card-actions"><button class="demo-button secondary-button" type="button" aria-label="Reenviar" title="Reenviar" disabled><svg class="ui-icon" aria-hidden="true"><use href="#icon-arrow-up-right" /></svg><span>Reenviar</span></button></div></div>
+          <div class="action-specimen"><div class="task-content"><strong>Júlia Costa · moradora</strong><small>Várias secundárias</small></div><div class="card-actions menu-only"><button class="demo-button secondary-button" type="button" aria-label="Mais ações" title="Mais ações"><svg class="ui-icon" aria-hidden="true"><use href="#icon-more" /></svg><span>Mais ações</span></button></div></div>
+          <p class="field-help">Exemplos estáticos de agrupamento. O <a href="./componentes.md#ações-de-cards-e-itens">guia de componentes</a> define as regras; a galeria do app demonstra os menus e as confirmações.</p>
+        </article>
         <div class="message-grid"><div class="message-card empty-message"><img class="message-symbol" src="./assets/faisca.svg" alt="" /><span class="eyebrow">ESTADO VAZIO</span><h3>Por aqui, tudo em ordem.</h3><p>Milagre? Combinado. Quando surgir uma tarefa, ela aparece aqui.</p></div><div class="message-card overdue-message"><svg class="message-symbol ui-icon" aria-hidden="true"><use href="#icon-clock" /></svg><span class="eyebrow">PRAZO PASSADO</span><h3>Passou do horário.</h3><p>Quer concluir a tarefa ou combinar outro prazo?</p></div><div class="message-card error-message"><svg class="message-symbol ui-icon" aria-hidden="true"><use href="#icon-alert" /></svg><span class="eyebrow">ERRO</span><h3>Não deu para salvar.</h3><p>Tente de novo. Seu texto continua aqui.</p></div></div>
       </section>
 
@@ -170,16 +188,56 @@
     <script>
       const root = document.documentElement;
       const toggle = document.getElementById("theme-toggle");
-      function showTheme() {
-        const dark = root.dataset.theme === "dark";
-        toggle.querySelector(".theme-label").textContent = dark ? "Modo claro" : "Modo escuro";
-        toggle.querySelector(".theme-glyph use").setAttribute("href", dark ? "#icon-sun" : "#icon-moon");
+      const themeMenu = document.getElementById("theme-options");
+      const themeControl = document.querySelector(".theme-control");
+      const options = [...themeMenu.querySelectorAll("button")];
+      const system = matchMedia("(prefers-color-scheme: dark)");
+      function readPreference() {
+        try { const saved = localStorage.getItem("cdb-theme"); return ["light", "dark"].includes(saved) ? saved : "system"; } catch { return "system"; }
       }
-      toggle.addEventListener("click", () => {
-        root.dataset.theme = root.dataset.theme === "dark" ? "light" : "dark";
-        try { localStorage.setItem("cdb-theme", root.dataset.theme); } catch {}
+      let preference = readPreference();
+      function showTheme() {
+        root.dataset.theme = preference === "system" ? (system.matches ? "dark" : "light") : preference;
+        const selected = options.find((option) => option.dataset.themeValue === preference);
+        const label = `Tema: ${selected.textContent}`;
+        toggle.querySelector(".theme-label").textContent = label;
+        toggle.setAttribute("aria-label", label);
+        toggle.title = label;
+        toggle.querySelector(".theme-glyph use").setAttribute("href", `#icon-${preference === "system" ? "monitor" : preference === "dark" ? "moon" : "sun"}`);
+        options.forEach((option) => {
+          option.setAttribute("aria-selected", String(option === selected));
+          option.tabIndex = option === selected ? 0 : -1;
+        });
+      }
+      function closeTheme(restoreFocus = false) {
+        themeMenu.hidden = true;
+        toggle.setAttribute("aria-expanded", "false");
+        if (restoreFocus) toggle.focus();
+      }
+      function openTheme() {
+        themeMenu.hidden = false;
+        toggle.setAttribute("aria-expanded", "true");
+        options.find((option) => option.dataset.themeValue === preference).focus();
+      }
+      toggle.addEventListener("click", () => themeMenu.hidden ? openTheme() : closeTheme());
+      options.forEach((option) => option.addEventListener("click", () => {
+        preference = option.dataset.themeValue;
+        try { if (preference === "system") localStorage.removeItem("cdb-theme"); else localStorage.setItem("cdb-theme", preference); } catch {}
         showTheme();
+        closeTheme(true);
+      }));
+      themeControl.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") { event.preventDefault(); closeTheme(true); return; }
+        if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+        event.preventDefault();
+        if (themeMenu.hidden) { openTheme(); return; }
+        const index = options.indexOf(document.activeElement);
+        const next = event.key === "Home" ? 0 : event.key === "End" ? options.length - 1 : (index + (event.key === "ArrowDown" ? 1 : -1) + options.length) % options.length;
+        options[next].focus();
       });
+      ["pointerdown", "focusin"].forEach((type) => document.addEventListener(type, (event) => { if (!themeControl.contains(event.target)) closeTheme(); }));
+      system.addEventListener("change", showTheme);
+      window.addEventListener("storage", (event) => { if (event.key === "cdb-theme" || event.key === null) { preference = readPreference(); showTheme(); } });
       showTheme();
       const sectionMenu = document.querySelector(".section-menu");
       if (sectionMenu) {

@@ -20,13 +20,30 @@ Um componente é uma peça reutilizável com comportamento e API próprios. Um p
 | Necessidade | Use | Não use quando |
 | --- | --- | --- |
 | Executar uma ação ou mudar estado | `Button`. Use `primary` para a ação principal do grupo, `secondary` para apoio e `quiet` para baixa ênfase. A variante altera o peso visual, não a semântica. | O destino é uma página ou rota. Use um link para navegação; não promova todas as ações a `primary`. |
-| Navegar para uma rota como ação principal da página | `LinkButton`, preservando a semântica de link e usando a mesma aparência de `Button` `primary`. Para navegação comum, use um link de texto. | A ação não navega; use `Button`. Não crie estilos locais para fazer um link parecer botão. |
-| Reunir duas ou mais ações secundárias do mesmo item | Quando o item tiver duas ou mais ações secundárias, reúna-as em um disclosure contextual com o rótulo visível “Ações”; em telas estreitas, o gatilho pode mostrar apenas o ícone de reticências se mantiver esse nome acessível. Mostre as opções em lista vertical com nomes textuais. Deixe qualquer ação principal fora do grupo e mantenha ações destrutivas por último, com confirmação. | O item tiver apenas uma ação secundária: deixe-a visível na linha. A ação principal fica sempre fora do disclosure. |
-| Concluir uma tarefa | `Button` `primary` com rótulo “Concluir”. Depois da conclusão, ofereça `Desfazer` em um Toast quando a reversão for segura. | `Checkbox` ou `IconButton` quando há espaço para um botão principal com texto. |
-| Executar uma ação apenas com ícone | `IconButton` compartilhado quando o espaço realmente não comportar texto e o ícone/contexto tornarem a ação evidente. Forneça nome acessível e dica visual; esses recursos não substituem o rótulo visível quando o significado não for imediato. | A ação cabe com rótulo ou exige interpretação. Nesse caso, mostre o texto e mantenha ações secundárias com menor ênfase que a principal do contexto. Para navegar, use um link com rótulo visível. |
+| Navegar para uma rota com aparência de ação | `LinkButton`, preservando a semântica de link e as variantes visuais de `Button`. Para navegação comum, use um link de texto. | A ação não navega; use `Button`. Não crie estilos locais para fazer um link parecer botão. |
+| Organizar ações de um card ou item | `CardActions`, com principal opcional e secundárias. Mantém o conteúdo à esquerda e as ações à direita, compacta os controles e reúne múltiplas secundárias em “Mais ações”. | Formulários, Salvar/Cancelar, confirmações, filtros, paginação e escolhas de sincronização mantêm seus padrões próprios. Cards inteiramente clicáveis continuam sendo links únicos. |
+| Escolher o tema | `Select` na apresentação de ação, com ícone e preferência selecionada: Sistema, Claro ou Escuro. Tema e Sair usam a aparência `secondary`; na sidebar e no menu móvel, ambos ocupam linhas de mesma largura com ícone e texto. Cabeçalhos estreitos podem compactar Tema. | Não combine um botão de alternância com outro seletor de tema. |
+| Concluir uma tarefa | A principal de `CardActions`, com rótulo “Concluir” e compactação conforme o grupo. Depois da conclusão, ofereça `Desfazer` em um Toast quando a reversão for segura. | Não use `Checkbox` para uma ação de conclusão. |
+| Executar uma ação apenas com ícone | `IconButton` para controles isolados. Em cards, deixe `CardActions` compactar `Button` e `LinkButton`, preservando a ênfase da principal. Todos precisam de nome acessível e tooltip. | Fora do padrão de cards, a ação cabe com rótulo ou exige interpretação: mostre o texto. |
 | Navegar pelas rotas públicas ou administrativas em telas estreitas | `MobileMenu` no shell React com React Router. No console administrativo, use sidebar persistente em telas largas e `MobileMenu` em telas estreitas; mantenha ações e busca da tela à vista. | A área residencial tem três destinos principais e usa uma barra inferior persistente; não replique o menu do site ali. Para seções da mesma página, use links em `<nav>`; o manual estático segue esse padrão. |
 | Fazer uma escolha curta e contextual, voltando ao mesmo ponto | `BottomSheet` com `<dialog>` nativo, como escolher uma casa ou o escopo de uma edição. | Não use como navegação principal nem para formulários longos; use uma tela própria. `MobileMenu` é um menu de rotas diferente. |
 | Confirmar uma ação importante e difícil de reverter | `ConfirmDialog`. Explique o efeito e nomeie a ação no botão de confirmação. | Ações comuns e reversíveis, como concluir, pular, pausar ou marcar compra: execute diretamente e ofereça **Desfazer** com Toast quando a reversão for segura. |
+
+## Ações de cards e itens
+
+O grupo permanece à direita do conteúdo, sem quebrar linha, na ordem principal e secundária/menu. Texto do conteúdo pode ocupar várias linhas; rótulos dos controles não quebram. No mobile (até 650 px) ou em grupos com largura útil inferior a 32 rem:
+
+| Ações disponíveis | Apresentação |
+| --- | --- |
+| Só principal | Ícone e texto |
+| Principal e uma secundária | Dois botões compactos |
+| Principal e duas ou mais secundárias | Principal compacta e Mais ações compacto |
+| Só uma secundária | Ícone e texto com menor destaque |
+| Duas ou mais secundárias, sem principal | Só Mais ações compacto |
+
+Compacto significa somente ícone, com alvo mínimo de 48 × 48 px, nome acessível e tooltip. Em espaços maiores, mostre ícone e texto mantendo o agrupamento. Uma ação destrutiva nunca ganha destaque de principal apenas por estar sozinha.
+
+O menu mostra opções textuais verticais, com destrutivas por último, e fecha ao selecionar, pressionar Escape ou clicar fora. Preserve confirmações, permissões e estados pendentes. Ao abrir uma confirmação, mantenha a sequência de foco; ao fechar por Escape, volte ao gatilho. O posicionamento usa a camada superior de popover com fallback e respeita as bordas da janela.
 
 ## Conteúdo, estado e ajuda
 

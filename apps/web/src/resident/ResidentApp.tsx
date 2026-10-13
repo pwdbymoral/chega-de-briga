@@ -666,10 +666,8 @@ export function ResidentApp({
                 showToast("Nome da casa atualizado.");
               }).catch((error: unknown) => showToast(errorMessage(error, "Não foi possível atualizar a casa. Revise os dados e tente novamente.")));
             }}
-            onMembers={() => navigate("/casa/moradores")}
             onLeave={() => leaveHouse(false)}
             onDelete={() => leaveHouse(true)}
-            onCreateHouse={() => navigate("/criar-casa")}
           />
         ) : route === "/casa/moradores" ? (
           <>

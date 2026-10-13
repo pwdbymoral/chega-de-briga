@@ -17,8 +17,8 @@ export function Button({ variant = "primary", className = "", type = "button", .
   return <button {...props} type={type} className={`${styles.button} ${styles[variant]} ${className}`} />;
 }
 
-export function LinkButton({ className = "", ...props }: LinkProps) {
-  return <Link {...props} className={`${styles.button} ${styles.primary} ${styles.linkButton} ${className}`} />;
+export function LinkButton({ variant = "primary", className = "", ...props }: LinkProps & { variant?: ButtonProps["variant"] }) {
+  return <Link {...props} className={`${styles.button} ${styles[variant]} ${styles.linkButton} ${className}`} />;
 }
 
 type IconButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "aria-label"> & {

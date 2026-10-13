@@ -129,12 +129,8 @@
 .settings summary:hover {
   background: var(--color-surface);
 }
-.settings > div {
-  margin: 0.35rem 0.8rem;
-}
-.settings > button {
-  margin: 0.2rem 0.8rem 0.7rem;
-}
+.settings > div, .settings > button { width: 100%; margin: 0.5rem 0 0; }
+.settings > div > button, .logout { width: 100%; justify-content: flex-start; }
 .content {
   min-width: 0;
   padding: clamp(1rem, 3vw, 3rem);
@@ -436,8 +432,7 @@
   color: var(--color-text-muted);
   font-size: 0.85rem;
 }
-.pagination div,
-.actions {
+.pagination div {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -525,104 +520,10 @@
   line-height: 1.45;
 }
 .entry {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
+  display: block;
   min-width: 0;
   padding: 0.85rem 0;
   border-top: 1px solid var(--color-border-soft);
-}
-.invitationEntry {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  align-items: start;
-}
-.invitationEntry .actions {
-  justify-content: flex-end;
-}
-.invitationWithActions {
-  grid-template-columns: minmax(0, 1fr) auto;
-}
-.invitationWithActions .rowActions {
-  position: relative;
-}
-.invitationWithActions .rowActions[open] {
-  z-index: 1;
-}
-.invitationWithActions .rowActionsMenu {
-  position: absolute;
-  top: calc(100% + 0.25rem);
-  right: 0;
-}
-.rowActions {
-  min-width: 0;
-}
-.rowActions > summary {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  min-height: 48px;
-  padding: 0.55rem 0.7rem;
-  border: 2px solid transparent;
-  border-radius: var(--radius-pill);
-  color: var(--color-text-muted);
-  font: 700 0.875rem/1.2 var(--font-personality);
-  cursor: pointer;
-  list-style: none;
-}
-.rowActions > summary::-webkit-details-marker {
-  display: none;
-}
-.rowActions > summary::marker {
-  content: "";
-}
-.rowActions > summary:hover,
-.rowActions[open] > summary {
-  background: var(--color-surface-raised);
-  color: var(--color-text);
-}
-.rowActionsMenu {
-  display: grid;
-  min-width: min(13rem, calc(100vw - 3rem));
-  margin-top: 0.25rem;
-  padding: 0.35rem;
-  border: 2px solid var(--color-border);
-  border-radius: var(--radius-control);
-  background: var(--color-surface);
-  box-shadow: 3px 3px 0 var(--color-shadow);
-}
-.rowActionsMenu .rowActionItem {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  width: 100%;
-  min-height: 48px;
-  padding: 0.65rem 0.75rem;
-  border: 0;
-  border-radius: var(--radius-control);
-  background: transparent;
-  color: var(--color-text);
-  font: inherit;
-  text-align: left;
-  text-decoration: none;
-  white-space: normal;
-}
-.rowActionsMenu .rowActionItem:hover {
-  background: var(--color-surface-raised);
-}
-.rowActionsMenu .demoAction {
-  color: var(--color-primary);
-}
-.rowActionsMenu .destructiveAction {
-  margin-top: 0.25rem;
-  border-top: 1px solid var(--color-border-soft);
-  color: var(--color-danger-text);
-}
-.entry > div:first-child {
-  flex: 1 1 170px;
-  min-width: 0;
 }
 .entry strong {
   overflow-wrap: anywhere;
@@ -943,13 +844,11 @@
   }
   .waitlistFilterForm { grid-template-columns: minmax(0, 1fr); }
   .waitlistFilterForm > * { grid-column: 1 !important; }
-  .accessActions,
-  .twoColumns .actions {
+  .accessActions {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
   }
-  .accessActions > button,
-  .twoColumns .actions > button {
+  .accessActions > button {
     width: 100%;
   }
   .pagination div {
@@ -992,31 +891,6 @@
     grid-template-columns: minmax(75px, 1fr) minmax(40px, 0.8fr) 2ch;
     font-size: 0.75rem;
   }
-  .entry { flex-wrap: wrap; }
-  .invitationEntry {
-    grid-template-columns: minmax(0, 1fr);
-    align-items: start;
-  }
-  .invitationWithActions {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-  .invitationWithActions .rowActions > summary {
-    width: 48px;
-    justify-content: center;
-    padding: 0;
-  }
-  .invitationWithActions .rowActionsLabel {
-    display: none;
-  }
-  .entry > div:first-child {
-    flex: 1;
-  }
-  .entry .actions {
-    display: flex;
-    flex-direction: row;
-    flex: none;
-    flex-basis: 100%;
-  }
   .filters .filterDisclosure[open] {
     flex: 1 1 100%;
   }
@@ -1055,3 +929,6 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+.tableActions { text-align: right; }
+.tableActions > button { white-space: nowrap; }

@@ -24,7 +24,7 @@ Os arquivos de imagem em `assets/` e o nome e as marcas Chega de Briga estão re
 7. Preserve proporção e área livre dos logos. Em espaços muito pequenos, use `simbolo.svg`.
 8. Para ícones funcionais sobre superfícies escuras, use os arquivos `icone-*-escuro.svg`; os arquivos sem sufixo são para fundos claros. Um SVG externo em `<img>` não herda `currentColor` do elemento pai.
 9. Use SVG para ícones e elementos gráficos; não use emoji como substituto. No app web, ícones utilitários usam Lucide React.
-10. No celular, empilhe ações com rótulos longos em larguras iguais. Pares curtos de navegação podem dividir a linha em duas colunas iguais. A ação secundária mantém menor peso visual.
+10. Em formulários e diálogos no celular, empilhe ações com rótulos longos em larguras iguais. Pares curtos de navegação podem dividir a linha em duas colunas iguais. Para ações de cards e itens, use o [padrão CardActions](./componentes.md#ações-de-cards-e-itens), mantendo o grupo à direita.
 
 ## Animação de abertura
 
@@ -46,4 +46,4 @@ Os PNGs maskable e o Apple touch icon usam fundo azul opaco até a borda; o sist
 
 ## Verificação das interações
 
-Execute `node design-system/check-interactions.mjs` na raiz do projeto. O script executa o JavaScript real do manual em um DOM simulado e confere alternância de tema, preferência salva e estados textuais dos cartões. Ele não substitui uma conferência visual e de acessibilidade em navegadores e dispositivos reais.
+Execute `node design-system/check-interactions.mjs` na raiz do projeto. O script executa o JavaScript real do manual em um DOM simulado e confere as três preferências de tema, persistência, acompanhamento do sistema, sincronização entre abas e exemplos dos cartões. Ele não substitui uma conferência visual e de acessibilidade em navegadores e dispositivos reais.

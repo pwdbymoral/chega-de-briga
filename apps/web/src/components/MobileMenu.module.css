@@ -158,8 +158,9 @@
 .footer label {
   justify-content: space-between;
 }
-.footer button {
-  justify-self: start;
+.footer > button, .footer > div > button {
+  width: 100%;
+  justify-content: flex-start;
 }
 @media (max-width: 420px) {
   .dialog { border-radius: 0; }

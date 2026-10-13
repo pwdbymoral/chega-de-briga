@@ -67,43 +67,10 @@
 .nav a[aria-current="page"] {
   background: var(--color-surface-raised);
 }
-.themeActions {
-  display: inline-flex;
-  align-items: center;
-  min-width: 0;
-}
-.themeToggle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.45rem;
-  min-height: 48px;
-  padding: 0.55rem 0.8rem;
-  border: var(--stroke) solid var(--color-border);
-  border-radius: var(--radius-pill) 0 0 var(--radius-pill);
-  background: var(--color-surface);
-  color: var(--color-text);
-  font-size: var(--type-sm);
-  font-weight: 700;
-  white-space: nowrap;
-  cursor: pointer;
-}
-.themeToggle svg {
-  flex: none;
-}
-.themeActionsCompact .themeToggle {
-  width: 48px;
-  padding: 0;
-}
-.themeActionsCompact .themeToggle span {
-  display: none;
-}
-.themeChoice {
-  margin-left: calc(-1 * var(--stroke));
-}
-.themeActions .themeChoice > button {
-  border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
-}
+.themeActions { min-width: 0; }
+.themeActionsCompact { width: 48px; }
+.themeActionsCompact > button { width: 48px; padding: 0; justify-content: center; }
+.themeActionsCompact > button > span { display: none; }
 .mobileMenuTrigger {
   display: none;
 }
@@ -571,11 +538,12 @@
   .desktopNav {
     display: none;
   }
-  .themeToggle {
+  .header .themeActions > button {
     width: 48px;
     padding: 0;
+    justify-content: center;
   }
-  .themeToggle span {
+  .header .themeActions > button > span {
     display: none;
   }
   .header .themeActions {
@@ -651,9 +619,6 @@
   .buttonRow > button {
     width: 100%;
   }
-  .taskCard .taskRow { display: grid; grid-template-columns: minmax(0, 1fr) 48px; }
-  .taskCard .taskContent { grid-column: 1 / -1; }
-  .taskCard .taskRow > button:not([aria-label]) { width: 100%; }
   .access {
     width: min(100% - 1rem, 1200px);
     min-height: 0;
@@ -666,3 +631,7 @@
     display: none;
   }
 }
+
+.actionExamples { display: grid; gap: 1rem; }
+.actionExamples > div { padding-block: 0.75rem; border-bottom: 1px solid var(--color-border-soft); }
+.actionExamples p { font-size: var(--type-sm); color: var(--color-text-muted); }

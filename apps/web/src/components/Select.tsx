@@ -1,5 +1,6 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
+import { Button } from "./ui";
 import styles from "./Select.module.css";
 
 export type SelectOption = {
@@ -16,12 +17,14 @@ export function Select({
   variant = "field",
   disabled = false,
   className = "",
+  icon,
 }: {
   label: string;
   value: string;
   options: readonly SelectOption[];
   onChange: (value: string) => void;
-  variant?: "field" | "compact";
+  variant?: "field" | "compact" | "action";
+  icon?: ReactNode;
   disabled?: boolean;
   className?: string;
 }) {
@@ -66,7 +69,7 @@ export function Select({
     const up = below < visibleHeight && above > below;
     setMenuSpace({
       up,
-      right: variant === "compact" && bounds.left > window.innerWidth / 2,
+      right: variant !== "field" && bounds.left > window.innerWidth / 2,
       height: Math.max(48, Math.min(visibleHeight, up ? above : below)),
     });
     setOpen(true);
@@ -115,13 +118,14 @@ export function Select({
       <span id={`${id}-label`} className={styles.label}>
         {label}
       </span>
-      <button
+      <Button
         ref={trigger}
         type="button"
-        className={styles.trigger}
+        variant="secondary"
+        className={`${styles.trigger} ${variant === "action" ? styles.actionTrigger : ""}`}
         disabled={!canOpen}
         aria-label={
-          variant === "compact"
+          variant !== "field"
             ? `${label}: ${current?.label ?? "Selecione"}`
             : undefined
         }
@@ -132,19 +136,20 @@ export function Select({
         aria-expanded={open}
         aria-controls={open ? `${id}-options` : undefined}
         data-tooltip={
-          variant === "compact"
+          variant !== "field"
             ? `${label}: ${current?.label ?? "Selecione"}`
             : undefined
         }
         onClick={toggle}
       >
+        {variant === "action" && <>{icon}<span className={styles.actionLabel}>{label}: {current?.label ?? "Selecione"}</span></>}
         {variant === "field" && (
           <span id={`${id}-value`} className={styles.value}>
             {current?.label ?? "Selecione"}
           </span>
         )}
-        <ChevronDown size={18} aria-hidden="true" />
-      </button>
+        {variant !== "action" && <ChevronDown size={18} aria-hidden="true" />}
+      </Button>
       {open && (
         <div
           ref={menu}

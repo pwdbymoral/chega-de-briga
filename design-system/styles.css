@@ -37,7 +37,12 @@ section[id] { scroll-margin-top: 7rem; }
 .section-nav::-webkit-scrollbar { display: none; }
 .section-nav a { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; min-width: 48px; min-height: 48px; padding-inline: 0.25rem; font-size: 0.79rem; font-weight: 700; text-decoration: none; }
 .section-nav a:hover { color: var(--color-primary); text-decoration: underline; }
-.theme-toggle { display: inline-flex; align-items: center; justify-content: center; gap: 0.45rem; min-height: 48px; padding: 0.4rem 0.8rem; border: 2px solid var(--color-border); border-radius: var(--radius-pill); background: var(--color-surface); color: var(--color-text); font-size: var(--type-sm); white-space: nowrap; }
+.theme-control { position: relative; }
+.theme-toggle { white-space: nowrap; }
+.theme-options { position: absolute; top: calc(100% + 0.5rem); right: 0; display: grid; width: max(100%, 140px); padding: 0.25rem; border: 2px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-surface); box-shadow: 4px 4px 0 var(--color-shadow); }
+.theme-options[hidden] { display: none; }
+.theme-options button { min-height: 48px; padding: 0.5rem; border: 0; border-radius: 0.5rem; background: transparent; color: var(--color-text); text-align: left; font-weight: 700; }
+.theme-options button[aria-selected="true"] { background: var(--color-primary); color: var(--color-on-primary); }
 .theme-glyph { display: inline-flex; font-size: 1.3rem; line-height: 1; }
 
 .hero { position: relative; isolation: isolate; display: flex; flex-direction: column; justify-content: space-between; min-height: 710px; margin-top: 1rem; padding: clamp(1.35rem, 4vw, 4rem); overflow: hidden; border-radius: 1.75rem; background: var(--brand-blue); color: #fff; }
@@ -190,6 +195,7 @@ section[id] { scroll-margin-top: 7rem; }
 .task-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.9rem; align-items: center; min-height: 82px; margin-top: 0.75rem; padding: 1rem; border: 2px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-surface); }
 .task-complete { gap: 0.4rem; padding-inline: 0.85rem; }
 .task-card .status { min-height: 48px; }
+.task-content { min-width: 0; overflow-wrap: anywhere; }
 .task-content strong, .task-content small { display: block; }
 .task-content strong { font-size: 1rem; }
 .task-content small { color: var(--color-text-muted); font-size: 0.76rem; }
@@ -258,7 +264,7 @@ section[id] { scroll-margin-top: 7rem; }
   .section-menu[open] > summary::after { margin-top: 0.3rem; transform: rotate(225deg); }
   .section-nav { position: absolute; top: 100%; right: 0; left: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 8.5rem), 1fr)); gap: 0.25rem; padding: 0.75rem clamp(0.75rem, 3.5vw, 4rem) 1rem; border: 2px solid var(--color-text); border-top: 0; background: var(--color-surface); box-shadow: 0 0.75rem 1.5rem rgb(0 0 0 / 0.16); }
   .section-nav a { justify-content: flex-start; padding-inline: 0.5rem; }
-  .theme-toggle { grid-area: theme; }
+  .theme-control { grid-area: theme; }
   .hero { min-height: 650px; }
   .hero h1 { font-size: clamp(3.2rem, 8vw, 7rem); }
   .principles { grid-template-columns: 1fr; }
@@ -347,4 +353,18 @@ section[id] { scroll-margin-top: 7rem; }
   .hero { margin: 0; border-radius: 0; }
   .logo-card, .component-panel, .concept-strip { box-shadow: none; }
   .logo-card, .component-panel, .element-board, .swatch { break-inside: avoid; }
+}
+
+.action-panel { margin-top: 1.6rem; }
+.action-specimen { container: specimen / inline-size; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0.75rem; padding-block: 1rem; border-top: 1px solid var(--color-border-soft); }
+.card-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: nowrap; gap: 0.5rem; }
+.card-actions .demo-button { flex: none; min-width: 48px; white-space: nowrap; padding-inline: 0.75rem; }
+.card-actions svg { flex: none; }
+@media (max-width: 650px) {
+  .card-actions.paired .demo-button, .card-actions.menu-only .demo-button { width: 48px; padding: 0; }
+  .card-actions.paired span, .card-actions.menu-only span { display: none; }
+}
+@container specimen (width < 32rem) {
+  .card-actions.paired .demo-button, .card-actions.menu-only .demo-button { width: 48px; padding: 0; }
+  .card-actions.paired span, .card-actions.menu-only span { display: none; }
 }
