@@ -6,7 +6,7 @@ import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
 import fastifyStatic from "@fastify/static";
 import webPush from "web-push";
-import { calculateAnalytics, type AnalyticsDataSet, type AnalyticsFilter } from "@chega-de-briga/domain";
+import { calculateAnalytics, isAcquisitionSource, type AnalyticsDataSet, type AnalyticsFilter } from "@chega-de-briga/domain";
 import { pool, id } from "./db.js";
 import { sendMail } from "./mail.js";
 import {
@@ -25,6 +25,7 @@ import {
 } from "./security.js";
 import { campaignTag, normalizeWaitlistContact, waitlistConsentVersion } from "./waitlist.js";
 import { allowedLandingApiMethod } from "./public-origin.js";
+import { parseLandingEvent, readAcquisitionAnalytics } from "./landing-metrics.js";
 
 type UserRow = { id: string; name: string; email: string };
 type AdminRow = { id: string; email: string };
@@ -591,13 +592,13 @@ app.get("/api/public/config", async () => ({ signupEnabled: publicSignupEnabled 
 
 app.post("/api/public/landing-events", { config: { rateLimit: { max: 60, timeWindow: "1 minute" } } }, async (request, reply) => {
   const body = bodyOf(request);
-  const event = body.event === "view" ? "landing_view" : body.event === "form_start" ? "form_start" : undefined;
-  if (!event || body.channel !== undefined && !["email", "whatsapp"].includes(String(body.channel))) {
+  const event = parseLandingEvent(body);
+  if (!event) {
     return bad(reply, 422, "validation", "Evento da página inválido.");
   }
   await pool.query(
-    "INSERT INTO public_landing_events(id,event_type,channel,utm_source,utm_medium,utm_campaign) VALUES($1,$2,$3,$4,$5,$6)",
-    [id("landing"), event, body.channel ?? null, ...campaignColumns(body)],
+    "INSERT INTO public_landing_events(id,event_type,channel,utm_source,utm_medium,utm_campaign,acquisition_source,page_key) VALUES($1,$2,$3,$4,$5,$6,$7,$8)",
+    [id("landing"), event.event, body.channel ?? null, ...campaignColumns(body), event.source, event.page],
   );
   return reply.code(202).send({ ok: true });
 });
@@ -614,6 +615,8 @@ app.post("/api/waitlist", { config: { rateLimit: { max: 5, timeWindow: "1 hour" 
   const contact = normalizeWaitlistContact(channel, rawContact);
   if (!contact) return bad(reply, 422, "validation", channel === "email" ? "Informe um e-mail válido." : "Informe um WhatsApp com DDD e código do país, quando necessário.");
   if (body.consent !== true || body.consentVersion !== waitlistConsentVersion) return bad(reply, 422, "validation", "Autorize o aviso pelo canal escolhido para continuar.");
+  const source = body.source === undefined ? "unknown" : body.source;
+  if (!isAcquisitionSource(source)) return bad(reply, 422, "validation", "Origem inválida.");
   const tags = campaignColumns(body);
   await withTransaction(async (client) => {
     const inserted = await client.query(
@@ -623,8 +626,8 @@ app.post("/api/waitlist", { config: { rateLimit: { max: 5, timeWindow: "1 hour" 
     );
     if (inserted.rowCount) {
       await client.query(
-        "INSERT INTO public_landing_events(id,event_type,channel,utm_source,utm_medium,utm_campaign) VALUES($1,'waitlist_signup',$2,$3,$4,$5)",
-        [id("landing"), channel, ...tags],
+        "INSERT INTO public_landing_events(id,event_type,channel,utm_source,utm_medium,utm_campaign,acquisition_source) VALUES($1,'waitlist_signup',$2,$3,$4,$5,$6)",
+        [id("landing"), channel, ...tags, source],
       );
     }
   });
@@ -634,7 +637,7 @@ app.post("/api/waitlist", { config: { rateLimit: { max: 5, timeWindow: "1 hour" 
 app.get("/api/admin/waitlist/analytics", { preHandler: adminSession }, async (request, reply) => {
   const query = request.query as { period?: string };
   const period = [7, 30, 90].includes(Number(query.period)) ? Number(query.period) : 30;
-  const [summary, channels, campaigns, grouped] = await Promise.all([
+  const [summary, channels, campaigns, grouped, acquisition] = await Promise.all([
     pool.query(
       `SELECT count(*) FILTER (WHERE event_type='landing_view')::int AS page_loads,
         count(*) FILTER (WHERE event_type='form_start')::int AS form_starts,
@@ -662,6 +665,7 @@ app.get("/api/admin/waitlist/analytics", { preHandler: adminSession }, async (re
        FROM public_landing_events WHERE occurred_at>=now()-($1::int*interval '1 day')
        GROUP BY 1 ORDER BY 1`, [period],
     ),
+    readAcquisitionAnalytics(pool, period),
   ]);
   const totals = summary.rows[0]!;
   const publicRows = publicSignupEnabled ? await pool.query(
@@ -701,6 +705,7 @@ app.get("/api/admin/waitlist/analytics", { preHandler: adminSession }, async (re
     conversion: pageLoads ? signups / pageLoads : 0,
     byChannel: channels.rows.map((row) => ({ channel: row.channel, count: row.count })),
     byCampaign: campaigns.rows.map((row) => ({ campaign: row.campaign || "Sem campanha", pageLoads: row.page_loads, formStarts: row.form_starts, signups: row.signups })),
+    ...acquisition,
     daily,
     publicFunnel: publicRows ? [
       { label: "Landing carregada", count: Number(publicRows.rows[0]?.page_loads ?? 0), denominator: Number(publicRows.rows[0]?.page_loads ?? 0) },

@@ -1,4 +1,5 @@
 export const waitlistConsentVersion = "lista-espera-2026-10";
+export { campaignTag } from "@chega-de-briga/domain";
 
 export function normalizeWaitlistContact(channel: unknown, raw: string) {
   if (channel === "email") {
@@ -13,10 +14,4 @@ export function normalizeWaitlistContact(channel: unknown, raw: string) {
     return digits.length >= 10 && digits.length <= 15 && !digits.startsWith("0") ? `+${digits}` : null;
   }
   return null;
-}
-
-export function campaignTag(value: unknown) {
-  if (typeof value !== "string") return null;
-  const tag = value.trim();
-  return /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,99}$/.test(tag) ? tag : null;
 }
