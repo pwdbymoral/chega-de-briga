@@ -54,7 +54,7 @@ export default defineConfig(({ mode }) => {
               ],
             },
             injectManifest: {
-              globPatterns: ["**/*.{html,js,css,svg,png,jpg,ttf,otf}"],
+              globPatterns: ["**/*.{html,js,css,svg,png,jpg,ttf,otf,woff2}"],
             },
           })]
         : []),

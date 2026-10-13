@@ -1,5 +1,5 @@
 import { build, loadEnv } from "vite";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { resolve, dirname } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -28,6 +28,7 @@ try {
   }
   await writeFile(resolve(output, "robots.txt"), `User-agent: *\nAllow: /\n${indexable ? `\nSitemap: ${origin}/sitemap.xml\n` : ""}`);
   await writeFile(resolve(output, "sitemap.xml"), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${indexable ? Object.values(pages).map(({ path }) => `  <url><loc>${origin}${path}</loc></url>`).join("\n") : ""}\n</urlset>\n`);
+  if (indexable) await cp(resolve("landing-public"), output, { recursive: true });
   console.log(`Landing: 3 pages + 404; indexing ${indexable ? "enabled" : "disabled"}.`);
 } finally {
   await rm(temporary, { recursive: true, force: true });
