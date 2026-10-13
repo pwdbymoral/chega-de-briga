@@ -104,10 +104,9 @@ export function LandingPage() {
           )}
           <a className={styles.loginLink} href={`${appOrigin}/entrar`}>Já tem acesso? Entrar</a>
           <span className={styles.signature}>A casa não é um ringue.</span>
-          <span className={styles.previewBadge}>PRÉVIA DO APP · DADOS FICTÍCIOS</span>
         </div>
         <div className={styles.heroVisual} aria-label="Prévia do app Chega de Briga">
-          <img src="/prints/inicio.jpg" alt="Tela Início do app com o cartão Primeiro combinado e atalhos para criar uma tarefa ou adicionar item de compras." />
+          <img src="/prints/inicio.jpg" alt="Início do app com tarefas atribuídas a moradores e um resumo de três itens de compras, incluindo um urgente." />
           <span className={styles.sticker}>TÁ<br />COMBINADO.</span>
           <img className={styles.spark} src="/faisca.svg" alt="" />
         </div>
@@ -117,7 +116,7 @@ export function LandingPage() {
         <div className={styles.sectionIntro}>
           <span className={styles.eyebrow}>A ROTINA EM UM SÓ LUGAR</span>
           <h2 id="product-title">Cada combinado <em>mais fácil de encontrar.</em></h2>
-          <p>Veja o que precisa ser feito e o que está faltando, sem depender de uma conversa perdida no grupo. As telas usam dados fictícios.</p>
+          <p>Veja o que precisa ser feito e o que está faltando, sem depender de uma conversa perdida no grupo.</p>
         </div>
         <div className={styles.showcase}>
           <article className={styles.showcaseCard} id="rotinas">
@@ -127,7 +126,7 @@ export function LandingPage() {
               <h3>Quem faz, quando faz. Tudo combinado.</h3>
               <p>Organize tarefas únicas e recorrentes e deixe a responsabilidade clara para todo mundo.</p>
             </div>
-            <img src="/prints/tarefas.jpg" alt="Tela Tarefas do app com a aba Rotinas e a tarefa fictícia Separar recicláveis." loading="lazy" />
+            <img className={styles.taskScreenshot} src="/prints/tarefas.jpg" alt="Visão semanal com o lixo atrasado atribuído a Júlia, a louça diária em revezamento e o banheiro atribuído a Caio." loading="lazy" />
           </article>
           <article className={`${styles.showcaseCard} ${styles.shoppingCard}`} id="compras">
             <div className={styles.showcaseCopy}>
@@ -136,9 +135,10 @@ export function LandingPage() {
               <h3>O que falta já fica anotado.</h3>
               <p>Adicione itens e quantidades para a próxima compra, visíveis para quem divide a casa.</p>
             </div>
-            <img src="/prints/compras.jpg" alt="Tela Compras do app com a seção Comprar antes e o item fictício Café aparecendo na lista." loading="lazy" />
+            <img src="/prints/compras.jpg" alt="Lista de compras com Leite e duas caixas para comprar antes, além de Café e Detergente na próxima compra." loading="lazy" />
           </article>
         </div>
+        <p className={styles.previewNote}>Prévia ilustrativa com dados fictícios.</p>
       </section>
 
       <section className={styles.steps} aria-labelledby="steps-title">

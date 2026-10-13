@@ -596,7 +596,7 @@ export function ResidentApp({
           <ChevronDown size={17} aria-hidden="true" />
         </button>
         <div className={styles.headerActions}>
-          {import.meta.env.DEV && <span className={styles.demoBadge}>DEMO LOCAL</span>}
+          {import.meta.env.MODE === "demo" && <span className={styles.demoBadge}>DEMO LOCAL</span>}
           {themeControl}
           <Link className={styles.avatarLink} to="/casa/perfil" aria-label="Abrir perfil">
             <Avatar name={session.user.name} initials={initials(session.user.name)} tone="lilac" />
@@ -677,7 +677,7 @@ export function ResidentApp({
             <MembersScreen data={data} userId={session.user.id} role={membership?.role ?? "morador"} onInvite={inviteResident} onRemove={removeMember} onRevoke={revokeInvite} onTransfer={transferResponsibility} />
           </>
         ) : <EmptyState title="Tela não encontrada." description="Volte para Início e escolha um destino da casa." />}
-        {import.meta.env.DEV && <p className={styles.localNote}>Demonstração local: alterações se perdem ao atualizar ou fechar esta aba e não sincronizam com outras pessoas.</p>}
+        {import.meta.env.MODE === "demo" && <p className={styles.localNote}>Demonstração local: alterações se perdem ao atualizar ou fechar esta aba e não sincronizam com outras pessoas.</p>}
       </main>
 
       <nav className={styles.bottomNav} aria-label="Navegação da casa">

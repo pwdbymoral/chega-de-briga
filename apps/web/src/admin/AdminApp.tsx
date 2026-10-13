@@ -72,6 +72,7 @@ import styles from "./AdminApp.module.css";
 const client = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 15_000 } },
 });
+const demoMode = import.meta.env.MODE === "demo";
 const AdminGatewayContext = createContext<AdminGateway | null>(null);
 const useAdminGateway = () => {
   const gateway = useContext(AdminGatewayContext);
@@ -237,11 +238,11 @@ function Login({
           <h1>
             {step === "totp"
               ? "Verificar o código"
-              : import.meta.env.DEV
+              : demoMode
                 ? "Entrar na demo"
                 : "Entrar na administração"}
           </h1>
-          {import.meta.env.DEV && <>
+          {demoMode && <>
             <p>Use as credenciais fictícias abaixo para explorar o fluxo.</p>
             <div className={styles.credentials}>
               <span>E-mail <strong>admin@exemplo.test</strong></span>
@@ -291,7 +292,7 @@ function Login({
             <Button type="submit" disabled={mutation.isPending}>
               {step === "totp"
                 ? "Verificar e entrar"
-                : import.meta.env.DEV
+                : demoMode
                   ? "Entrar na demo"
                   : "Entrar"}{" "}
               <ArrowRight size={18} aria-hidden="true" />
@@ -311,14 +312,14 @@ function Login({
           {step === "credentials" && bootstrapEnabled && <p className={styles.loginHelp}><Link to="/admin/setup">Configurar a primeira conta</Link></p>}
         </Card>
         <div className={styles.loginIntro}>
-          <span className={styles.eyebrow}>ÁREA DA EQUIPE{import.meta.env.DEV ? " · DEMONSTRAÇÃO" : ""}</span>
+          <span className={styles.eyebrow}>ÁREA DA EQUIPE{demoMode ? " · DEMONSTRAÇÃO" : ""}</span>
           <h2>
             Os bastidores
             <br />
             <em>também contam.</em>
           </h2>
           <p>
-            {import.meta.env.DEV ? "Este console usa dados fictícios e funciona somente no ambiente de desenvolvimento." : "Acesso restrito à equipe da plataforma."}
+            {demoMode ? "Este console usa dados fictícios e funciona somente no ambiente de demonstração." : "Acesso restrito à equipe da plataforma."}
           </p>
           <img src="/caminhos.svg" alt="" />
         </div>
@@ -772,7 +773,7 @@ function UserEditor({
                   Suspender conta
                 </Button>
               )}
-              {import.meta.env.DEV && (
+              {demoMode && (
                 <Button
                   variant="quiet"
                   disabled={mutation.isPending}
@@ -964,10 +965,10 @@ function AccessPage() {
       showToast(
         {
           allow: "Acesso liberado.",
-          invite: import.meta.env.DEV ? "Convite criado na demo; nenhum e-mail foi enviado." : "Convite criado; o e-mail entrou na fila de envio.",
+          invite: demoMode ? "Convite criado na demo; nenhum e-mail foi enviado." : "Convite criado; o e-mail entrou na fila de envio.",
           revokeAllow: "Autorização revogada.",
           revokeInvite: "Convite revogado.",
-          resend: import.meta.env.DEV ? "Convite atualizado na demo; nenhum e-mail foi enviado." : "Convite reenviado; o e-mail entrou na fila de envio.",
+          resend: demoMode ? "Convite atualizado na demo; nenhum e-mail foi enviado." : "Convite reenviado; o e-mail entrou na fila de envio.",
         }[action.kind],
       );
       if (action.kind === "allow") setAllowedEmail("");
@@ -1957,7 +1958,7 @@ function AdminInner({ themeControl }: { themeControl: ReactNode }) {
     );
   return (
     <section className={styles.console}>
-      {import.meta.env.DEV && <div className={styles.demoBanner} role="status">
+      {demoMode && <div className={styles.demoBanner} role="status">
         <span>DEMONSTRAÇÃO · DADOS FICTÍCIOS</span>
         <span>Alterações se perdem ao atualizar ou fechar a aba. Nenhum e-mail é enviado.</span>
       </div>}

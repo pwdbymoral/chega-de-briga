@@ -4,9 +4,9 @@
   "packageManager": "pnpm@12.6.0",
   "scripts": {
     "dev": "pnpm run dev:full",
-    "dev:demo": "pnpm --filter @chega-de-briga/domain build && pnpm --filter @chega-de-briga/web dev",
+    "dev:demo": "pnpm --filter @chega-de-briga/domain build && pnpm --filter @chega-de-briga/web dev:demo",
     "api:dev": "pnpm --filter @chega-de-briga/domain build && pnpm --filter @chega-de-briga/api dev",
-    "dev:full": "docker compose -f docker-compose.local.yml up -d --wait && export DATABASE_URL=postgres://chegadebriga:local-development-only@127.0.0.1:54329/chegadebriga APP_ORIGIN=http://127.0.0.1:5173 PUBLIC_SIGNUP_ENABLED=false && pnpm --filter @chega-de-briga/domain build && pnpm --filter @chega-de-briga/api build && pnpm --filter @chega-de-briga/api migrate && pnpm --parallel --stream --filter @chega-de-briga/api --filter @chega-de-briga/web run dev:full",
+    "dev:full": "docker compose -f docker-compose.local.yml up -d --wait && export DATABASE_URL=postgres://chegadebriga:local-development-only@127.0.0.1:54329/chegadebriga APP_ORIGIN=http://127.0.0.1:${CDB_WEB_PORT:-5173} PUBLIC_SIGNUP_ENABLED=false HOST=127.0.0.1 PORT=${CDB_API_PORT:-3000} API_PROXY_TARGET=http://127.0.0.1:${CDB_API_PORT:-3000} && pnpm --filter @chega-de-briga/domain build && pnpm --filter @chega-de-briga/api build && pnpm --filter @chega-de-briga/api migrate && pnpm --parallel --stream --filter @chega-de-briga/api --filter @chega-de-briga/web run dev:full",
     "build": "pnpm tokens:build && pnpm --filter @chega-de-briga/domain build && pnpm --filter @chega-de-briga/web build && pnpm --filter @chega-de-briga/api build",
     "build:landing": "pnpm tokens:build && pnpm --filter @chega-de-briga/web build:landing",
     "preview": "pnpm --filter @chega-de-briga/web preview",

@@ -1,6 +1,6 @@
 # Contrato do backend administrativo
 
-Este documento define o domínio administrativo e as métricas usadas por `apps/web/src/admin`. O gateway de produção e as rotas protegidas existem; `/admin` usa o backend no build de produção e mantém dados simulados somente no Vite de desenvolvimento. A implantação ainda precisa ser verificada. A arquitetura, autenticação, retenção e provisionamento ficam em [backend-deployment-contract-v1.md](./backend-deployment-contract-v1.md); as regras do produto residencial ficam em [modelagem-mobile-v1.md](./modelagem-mobile-v1.md).
+Este documento define o domínio administrativo e as métricas usadas por `apps/web/src/admin`. O gateway de produção e as rotas protegidas existem; `/admin` usa o backend em `pnpm dev` e no build de produção, e só usa dados simulados em `pnpm dev:demo`. A implantação ainda precisa ser verificada. A arquitetura, autenticação, retenção e provisionamento ficam em [backend-deployment-contract-v1.md](./backend-deployment-contract-v1.md); as regras do produto residencial ficam em [modelagem-mobile-v1.md](./modelagem-mobile-v1.md).
 
 ## Entidades e relações
 

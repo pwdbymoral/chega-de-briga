@@ -1644,10 +1644,11 @@ if (existsSync(path.join(webRoot, "index.html"))) {
 }
 
 const port = Number(process.env.PORT ?? 3000);
+const host = process.env.HOST ?? "0.0.0.0";
 if (publicSignupEnabled) {
   await pool.query("INSERT INTO app_settings(key,value) VALUES('public_signup_launched_at',now()::text) ON CONFLICT(key) DO NOTHING");
 }
-await app.listen({ host: "0.0.0.0", port });
+await app.listen({ host, port });
 app.log.info({ port }, "Chega de Briga API ready");
 
 const cleanup = setInterval(() => {

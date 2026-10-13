@@ -26,16 +26,17 @@ import {
 } from "./theme";
 import styles from "./App.module.css";
 
-const DevAdmin = import.meta.env.DEV
+const demoMode = import.meta.env.MODE === "demo";
+const DevAdmin = demoMode
   ? lazy(() => import("./admin/DemoAdminApp"))
   : null;
-const ProdAdmin = !import.meta.env.DEV
+const ProdAdmin = !demoMode
   ? lazy(() => import("./admin/ProductionAdminApp"))
   : null;
-const DevAuth = import.meta.env.DEV
+const DevAuth = demoMode
   ? lazy(() => import("./auth/DemoAuthApp"))
   : null;
-const ProdAuth = !import.meta.env.DEV
+const ProdAuth = !demoMode
   ? lazy(() => import("./auth/ProductionAuthApp"))
   : null;
 const DevLanding = import.meta.env.DEV
@@ -424,7 +425,7 @@ const publicMenuItems: MobileMenuItem[] = [
   { to: "/#compras", label: "Compras" },
   { to: "/#lista-de-espera", label: "Lista de espera" },
   ...(import.meta.env.DEV ? [{ to: "/componentes", label: "Componentes" }] : []),
-  ...(import.meta.env.DEV ? [{ to: "/admin", label: "Admin demo" }] : []),
+  ...(import.meta.env.DEV ? [{ to: "/admin", label: demoMode ? "Admin demo" : "Admin" }] : []),
 ];
 
 function PublicLinks() {

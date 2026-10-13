@@ -142,7 +142,7 @@ function AuthLayout({
           </span>
         </Link>
         <div className={styles.headerActions}>
-          {import.meta.env.DEV && <span className={styles.demoTag}>DEMO LOCAL</span>}
+          {import.meta.env.MODE === "demo" && <span className={styles.demoTag}>DEMO LOCAL</span>}
           {themeControl}
         </div>
       </header>
@@ -431,13 +431,13 @@ function Recovery() {
       <h1>Esqueceu a senha?</h1>
       {sent ? (
         <div className={styles.confirmation} role="status">
-          <p>Se houver uma conta com esse e-mail, o link de redefinição estará disponível na demonstração.</p>
+          <p>{import.meta.env.MODE === "demo" ? "Se houver uma conta com esse e-mail, o link de redefinição estará disponível na demonstração." : "Se houver uma conta com esse e-mail, enviaremos instruções para redefinir a senha."}</p>
           {resetLink && (
             <Link className={styles.resetLink} to={resetLink}>
               Abrir link de redefinição <ArrowRight size={17} aria-hidden="true" />
             </Link>
           )}
-          <p className={styles.finePrint}>Nenhum e-mail foi enviado. O link de teste expira em 30 minutos e só pode ser usado uma vez.</p>
+          {import.meta.env.MODE === "demo" && <p className={styles.finePrint}>Nenhum e-mail foi enviado. O link de teste expira em 30 minutos e só pode ser usado uma vez.</p>}
         </div>
       ) : (
         <>
@@ -705,7 +705,7 @@ function Feedback({
 }
 
 function DemoNote() {
-  if (!import.meta.env.DEV) return null;
+  if (import.meta.env.MODE !== "demo") return null;
   return (
     <p className={styles.demoNote}>
       Demonstração local: nenhuma conta real é criada e nenhum e-mail é enviado.

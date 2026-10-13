@@ -311,7 +311,7 @@ export function TaskDetailScreen({
   onResume: () => void;
   onEnd: () => void;
 }) {
-  if (!task) return <EmptyState title="Esta tarefa não está disponível." description="Ela pode ter sido removida desta demonstração." />;
+  if (!task) return <EmptyState title="Esta tarefa não está disponível." description="Ela pode ter sido removida ou não estar mais disponível." />;
   return (
     <div className={styles.screenStack}>
       <button className={styles.backButton} type="button" onClick={onBack}><ArrowLeft size={18} aria-hidden="true" /> Voltar às tarefas</button>
@@ -570,7 +570,7 @@ export function ProfileScreen({
   async function toggleReminder() {
     setSavingReminder(true);
     try {
-      if (import.meta.env.DEV) {
+      if (import.meta.env.MODE === "demo") {
         showToast("Notificações ficam disponíveis no ambiente de produção.");
         return;
       }
@@ -639,7 +639,7 @@ export function ProfileScreen({
       </Card>
       <Card className={styles.preferenceCard}><h2>Seus dados</h2><p>Baixe uma cópia dos dados da sua conta e das casas em que participa.</p><Button variant="secondary" onClick={() => void exportData()}>Baixar meus dados</Button><p><Link to="/privacidade">Aviso de privacidade</Link></p><p><Link to="/casa/perfil/excluir">Excluir conta</Link></p></Card>
       <Button variant="quiet" className={styles.logoutButton} onClick={onLogout}><LogOut size={18} aria-hidden="true" /> Sair da conta</Button>
-      {import.meta.env.DEV && <p className={styles.helper}>A sessão e estas alterações são locais. Nenhum dado de conta é enviado.</p>}
+      {import.meta.env.MODE === "demo" && <p className={styles.helper}>A sessão e estas alterações são locais. Nenhum dado de conta é enviado.</p>}
     </div>
   );
 }
@@ -740,10 +740,10 @@ export function MembersScreen({
       {role === "responsavel" && (
         <Card className={styles.inviteCard}>
           <div className={styles.sectionHeadingCompact}><h2>Convidar morador</h2><Mail size={19} aria-hidden="true" /></div>
-          <p>{import.meta.env.DEV ? "Este convite fica nesta demonstração. Nenhum e-mail será enviado." : "A pessoa receberá um link por e-mail para entrar nesta casa."}</p>
+          <p>{import.meta.env.MODE === "demo" ? "Este convite fica nesta demonstração. Nenhum e-mail será enviado." : "A pessoa receberá um link por e-mail para entrar nesta casa."}</p>
           <form className={styles.inviteForm} onSubmit={submit}>
             <TextField id="invite-email" label="E-mail" type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="nome@exemplo.com" />
-            <Button type="submit"><Plus size={18} aria-hidden="true" /> {import.meta.env.DEV ? "Criar convite de demonstração" : "Enviar convite"}</Button>
+            <Button type="submit"><Plus size={18} aria-hidden="true" /> {import.meta.env.MODE === "demo" ? "Criar convite de demonstração" : "Enviar convite"}</Button>
           </form>
         </Card>
       )}
@@ -753,7 +753,7 @@ export function MembersScreen({
           {data.members.map((member) => (
             <article className={styles.memberRow} key={member.id}>
               <Avatar name={member.name} initials={initials(member.name)} tone={member.id === userId ? "blue" : "sun"} />
-              <div><strong>{member.name}{member.id === userId ? " · Você" : ""}</strong><span>{member.email ?? "Morador de demonstração"}</span></div>
+              <div><strong>{member.name}{member.id === userId ? " · Você" : ""}</strong><span>{member.email ?? "Morador da casa"}</span></div>
               <span className={styles.memberRole}>{member.role === "responsavel" ? "Responsável" : "Morador"}</span>
               {role === "responsavel" && member.id !== userId && <div className={styles.memberActions}>
                 {member.role !== "responsavel" && <Button variant="quiet" onClick={() => onTransfer(member.id)}>Tornar responsável</Button>}
@@ -765,9 +765,9 @@ export function MembersScreen({
       </section>
       <section className={styles.contentSection} aria-labelledby="invites-title">
         <div className={styles.sectionHeadingCompact}><h2 id="invites-title">Convites pendentes</h2><span>{data.invites.length}</span></div>
-        {data.invites.length ? <Card className={styles.memberList}>{data.invites.map((invite) => <article className={styles.inviteRow} key={invite.id}><div><strong>{invite.email}</strong><StatusBadge tone="warning">{import.meta.env.DEV ? "Não enviado · demonstração" : "Link enviado"}</StatusBadge></div>{role === "responsavel" && <Button variant="quiet" onClick={() => onRevoke(invite.id)}>Revogar</Button>}</article>)}</Card> : <p className={styles.helper}>Nenhum convite pendente.</p>}
+        {data.invites.length ? <Card className={styles.memberList}>{data.invites.map((invite) => <article className={styles.inviteRow} key={invite.id}><div><strong>{invite.email}</strong><StatusBadge tone="warning">{import.meta.env.MODE === "demo" ? "Não enviado · demonstração" : "Link enviado"}</StatusBadge></div>{role === "responsavel" && <Button variant="quiet" onClick={() => onRevoke(invite.id)}>Revogar</Button>}</article>)}</Card> : <p className={styles.helper}>Nenhum convite pendente.</p>}
       </section>
-      {import.meta.env.DEV && <p className={styles.infoNote}>Os moradores e convites acima são dados locais de demonstração; alterações não chegam a outras pessoas.</p>}
+      {import.meta.env.MODE === "demo" && <p className={styles.infoNote}>Os moradores e convites acima são dados locais de demonstração; alterações não chegam a outras pessoas.</p>}
     </div>
   );
 }

@@ -54,6 +54,7 @@ O e-mail de login do responsável e o usuário SMTP são configuração privada:
 | `VAPID_SUBJECT` | Opcional | Omitida | Padrão `mailto:forjacorp@gmail.com`. |
 | `BOOTSTRAP_ADMIN_EMAIL` | Temporária: definida privadamente no Coolify até criar o primeiro admin | Omitida | Remover depois do provisionamento. Sem ela, a instalação vazia não oferece bootstrap administrativo. Não registrar o valor no repositório público. |
 | `PORT` | `3000` | `3000` | Porta escutada pelo contêiner. |
+| `HOST` | `0.0.0.0` | `0.0.0.0` | Interface de rede da API; o fluxo local `pnpm dev` usa `127.0.0.1`. |
 | `DATABASE_POOL_SIZE` | Opcional, padrão `10` | Opcional, padrão `10` | Limite de conexões do serviço. |
 | `DATABASE_SSL` | Opcional | Opcional | Use `true` somente se o PostgreSQL exigir TLS com certificado confiável. |
 

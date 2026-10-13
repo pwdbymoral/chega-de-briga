@@ -11,7 +11,7 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-`pnpm dev` sobe um PostgreSQL local isolado, aplica as migrações e inicia a API e o Vite com `/api` encaminhado para a API. A interface fica em `http://127.0.0.1:5173`, o cadastro público permanece fechado e nenhuma mensagem é enviada. Use contatos sintéticos terminados em `.test`. Para abrir somente a interface com gateways de demonstração, sem banco ou API, rode `pnpm dev:demo`.
+`pnpm dev` sobe um PostgreSQL local isolado, aplica as migrações e inicia a API e o Vite com `/api` encaminhado para a API. A interface fica em `http://127.0.0.1:5173`, o cadastro público permanece fechado e nenhuma mensagem é enviada. Use contatos sintéticos terminados em `.test`. Se as portas padrão estiverem ocupadas, escolha portas livres, por exemplo `CDB_WEB_PORT=5177 CDB_API_PORT=3001 pnpm dev`. A API de desenvolvimento escuta somente em `127.0.0.1`. Para abrir somente a interface com gateways de demonstração, sem banco ou API, rode `pnpm dev:demo`.
 
 Para executar a API manualmente, configure as variáveis documentadas em [`docs/backend-deployment-contract-v1.md`](./docs/backend-deployment-contract-v1.md), disponibilize PostgreSQL e rode:
 
@@ -21,7 +21,7 @@ pnpm api:dev
 
 Para parar o banco local, rode `docker compose -f docker-compose.local.yml down`; o volume de desenvolvimento é preservado.
 
-As rotas `/admin` e `/entrar` usam dados simulados em desenvolvimento e serviços reais no build de produção. Não use credenciais demo nem fixtures para validar produção.
+As rotas `/admin` e `/entrar` usam o backend local em `pnpm dev` e serviços reais no build de produção. Só `pnpm dev:demo` usa gateways simulados e mostra avisos de demonstração; ele não inicia banco nem API. Não use credenciais demo nem fixtures para validar produção.
 
 ## Build e execução
 
