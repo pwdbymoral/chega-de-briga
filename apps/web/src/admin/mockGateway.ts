@@ -609,6 +609,12 @@ export function createDemoGateway(data = createDemoData()): AdminGateway {
         formStarts: 76,
         signups: 24,
         conversion: 24 / 212,
+        bySource: [
+          { source: "google", pageLoads: 110, guideViews: 80, formStarts: 40, signups: 14, conversion: 14 / 110 },
+          { source: "chatgpt", pageLoads: 60, guideViews: 30, formStarts: 24, signups: 7, conversion: 7 / 60 },
+          { source: "direct_unknown", pageLoads: 42, guideViews: 10, formStarts: 12, signups: 3, conversion: 3 / 42 },
+        ],
+        byGuide: [{ page: "tasks_guide", views: 75 }, { page: "shopping_guide", views: 45 }],
         byChannel: [{ channel: "email", count: 16 }, { channel: "whatsapp", count: 8 }],
         byCampaign: [
           { campaign: "casa-compartilhada", pageLoads: 106, formStarts: 43, signups: 15 },

@@ -120,13 +120,26 @@ As regras exatas de recorrência, atribuição, conflitos de compras e limpeza d
 
 Migrações aplicadas em produção são imutáveis: mudanças no esquema entram em um novo arquivo numerado. O runner registra versões e hashes, rejeita arquivos alterados após a aplicação e executa o lote pendente em uma transação sob trava do PostgreSQL.
 
+## Publicação da landing e descoberta
+
+O build estático e os comandos de verificação ficam no [README](../README.md#landing-e-guias). `LANDING_INDEXABLE` é configuração exclusiva de build: somente `true` habilita indexação e inclui as três páginas no sitemap; ausência ou `false` gera `noindex` e sitemap vazio. Os crawlers continuam autorizados a ler o HTML dos previews para observar o `noindex`. Isso não é uma barreira de acesso.
+
+1. Publicar primeiro a migração 004 e a API compatível, mantendo a landing antiga durante essa etapa. O frontend antigo continua enviando payloads válidos. Coordenar os recursos de deploy automático para evitar a nova landing antes da API.
+2. No recurso da landing, manter Nixpacks e saída estática; aplicar o bloco de servidor de [`deploy/landing.nginx.conf`](../deploy/landing.nginx.conf) à configuração Nginx gerada pelo Coolify, preservando o contexto externo exigido pela instalação. A raiz padrão é `/usr/share/nginx/html`; conferir esse caminho na configuração gerada. Não habilitar fallback de SPA. Salvar e reconstruir a imagem, pois reiniciar a imagem anterior não aplica a alteração. [Coolify: configuração estática](https://coolify.io/docs/applications/builds/static).
+3. Publicar landing e console. Conferir HTML com conteúdo, links e assets, HTTP 200 nas três páginas, 301 dos aliases preservando caminho e query, barra final dos guias e 404 para endereço inexistente. Conferir canonical, metadados, robots e sitemap no domínio HTTPS real; garantir que produção não ficou com `noindex`. Não retirar aliases da PWA nem alterar seu armazenamento durante esse ajuste da landing.
+4. Conferir regras do proxy/WAF existentes para permitir os crawlers de busca, mantendo as demais proteções. A configuração de robots usa `User-agent: *` com `Allow: /`, sem alterar separadamente a política de treinamento.
+5. Com acesso do proprietário, verificar a propriedade `https://chegadebriga.forjacorp.com/` no Google Search Console e Bing Webmaster Tools, enviar `/sitemap.xml` e inspecionar cada URL. Registrar a data real de publicação dos guias ao publicar; até lá, os artigos mostram somente a data de revisão editorial.
+6. Na primeira semana, registrar a linha de base de indexação, consultas, impressões, cliques e atribuição no console. Conferir semanalmente os mesmos períodos e, após 30 dias, revisar os textos com base nas consultas observadas. Citações de IA disponíveis no Bing são acompanhadas separadamente; não estimar citações a partir de visitas.
+
+A configuração dos consoles e validação externa exigem acesso às contas e ao servidor. Não considerar essas etapas concluídas apenas porque o build local passou. Em rollback, restaurar os artefatos anteriores sem remover colunas ou eventos da migração aditiva; manter o esquema compatível.
+
 ## API mínima
 
 | Operação | Endpoint sugerido | Regra principal |
 | --- | --- | --- |
 | Aviso de privacidade | Rota pública `/privacidade` na PWA | Sem autenticação; linkado nas telas de entrar, cadastro e perfil. |
 | Configuração pública | `GET /api/public/config` | Informa se o cadastro público está habilitado; não revela dados pessoais. |
-| Métricas da landing | `POST /api/public/landing-events` | Registra somente carregamento e início do formulário, canal/tag de campanha permitidos; sem identificador de visitante, IP como dado de produto ou user agent. |
+| Métricas públicas | `POST /api/public/landing-events` | Registra carregamentos da landing/guias e início do formulário, com página, origem, canal e tags permitidos pelo [contrato administrativo](./admin-backend-contract.md#atribuição-pública); sem identificador de visitante, IP como dado de produto ou user agent. |
 | Lista de espera | `POST /api/waitlist` | Valida e normaliza e-mail/WhatsApp, exige consentimento versionado, usa honeypot, rate limit e resposta neutra para duplicatas. Não envia mensagem nesta fase. |
 | Bootstrap administrativo | `GET /api/admin/bootstrap/status`, `POST /api/admin/bootstrap/request`, `/challenge` e `/complete` | Disponível somente sem contas admin; link de uso único; conclusão exige token, senha e TOTP; códigos de recuperação são exibidos uma vez. |
 | Sessão residencial | `POST/GET/DELETE /api/auth/session` | Criar, consultar e encerrar sessão de morador. |
@@ -173,7 +186,7 @@ Respostas de erro usam `{ code, message, request_id }`; validar entrada no servi
 
 1. Manter no Coolify o recurso Docker Compose existente com os serviços `app` e `database`; preservar o volume PostgreSQL. Definir `APP_BASE_URL=https://app.chegadebriga.forjacorp.com`, `APP_ALLOWED_ORIGINS=https://app.forjacorp.com` e `PUBLIC_LANDING_ORIGINS=https://chegadebriga.forjacorp.com,https://chega-de-briga.forjacorp.com` no grupo Production. Preservar as demais variáveis e segredos; deixar `APP_BASE_URL` fora do grupo de previews.
 2. Adicionar `https://app.chegadebriga.forjacorp.com` ao recurso Compose na porta `3000`, mantendo `https://app.forjacorp.com` como alias durante a transição. Os aliases `www` gerados pelo Coolify redirecionam à forma sem `www`. A raiz do app abre a área residencial/login; o `start_url` da PWA é `/casa`.
-3. Manter o recurso Nixpacks estático separado. Usar `pnpm build:landing`, publicar `/apps/web/dist-landing`, definir `VITE_APP_ORIGIN=https://app.chegadebriga.forjacorp.com`, adicionar `https://chegadebriga.forjacorp.com` e manter `https://chega-de-briga.forjacorp.com` como alias. Os aliases `www` redirecionam para o domínio sem `www`; o Git App do Coolify mantém deploy automático de `main`.
+3. Manter o recurso Nixpacks com site estático separado. Usar `pnpm build:landing`, publicar `/apps/web/dist-landing`, definir `VITE_APP_ORIGIN=https://app.chegadebriga.forjacorp.com` e `LANDING_INDEXABLE=true` no build de produção (não nos previews). Adicionar `https://chegadebriga.forjacorp.com` e manter `https://chega-de-briga.forjacorp.com` como alias com redirecionamento permanente à origem canônica. Os aliases `www` também redirecionam; o Git App do Coolify mantém deploy automático de `main`. Aplicar a configuração abaixo antes da entrega dos guias.
 4. Validar primeiro o deploy nos domínios novos, HTTPS, CORS e lista de espera; manter ambos os domínios antigos ativos até confirmar uso e sincronização das filas offline. Não remover ou recriar o recurso PostgreSQL.
 5. No serviço `database`, configurar backup PostgreSQL diário e retenção de 30 dias; executar um backup manual e conferir o resultado. O Coolify oferece backup com reconhecimento de PostgreSQL também para componentes de um serviço Docker Compose. [Coolify: backups PostgreSQL](https://coolify.io/docs/databases/backups)
 6. Aplicar migrações antes de atender tráfego. A rota de saúde informa estado do processo e do banco, sem dados ou segredos.

@@ -34,6 +34,32 @@ O build gera a PWA do app em `apps/web/dist` e a API em `apps/api/dist`. O [`Doc
 
 Em produção, `chegadebriga.forjacorp.com` serve somente a landing e `app.chegadebriga.forjacorp.com` serve a PWA e API. A landing chama apenas as rotas públicas permitidas na configuração `PUBLIC_LANDING_ORIGINS`; o app mantém API same-origin.
 
+### Landing e guias
+
+`pnpm build:landing` gera HTML completo para a landing e os dois guias, além de `404.html`, `robots.txt` e sitemap. O navegador hidrata o HTML e consulta a disponibilidade de cadastro em runtime; o build não chama a API. Por padrão, o resultado é `noindex` e o sitemap fica vazio. Para produção:
+
+```bash
+LANDING_INDEXABLE=true VITE_APP_ORIGIN=https://app.chegadebriga.forjacorp.com pnpm build:landing
+pnpm check:landing
+pnpm preview:landing
+```
+
+O preview estático escuta em `http://127.0.0.1:4174`, serve os guias por URL direta e responde `404` para caminhos desconhecidos. Use `LANDING_PREVIEW_PORT` para outra porta. Para testar o formulário localmente, gere a landing com `VITE_APP_ORIGIN` apontando para sua API de desenvolvimento e permita a origem do preview em `PUBLIC_LANDING_ORIGINS`. Nunca use contatos reais nos testes.
+
+Os textos e metadados dos guias ficam em `apps/web/src/landing/`; atualize a data editorial somente quando revisar o conteúdo. URLs canônicas e sitemap usam o domínio público, sem UTMs. A configuração do Nginx e a ordem de publicação estão no [contrato de deploy](./docs/backend-deployment-contract-v1.md#publicação-da-landing-e-descoberta).
+
+### Verificações
+
+```bash
+pnpm --filter @chega-de-briga/domain build
+pnpm check
+pnpm --filter @chega-de-briga/api test
+pnpm build:landing
+pnpm check:landing
+```
+
+Para a integração de aquisição, configure `TEST_DATABASE_URL` para um PostgreSQL **local e descartável** e rode `pnpm --filter @chega-de-briga/api test:integration`. O teste cria e remove seu próprio schema, aplica migrações com um evento antigo, inicia uma API local sem e-mail/push e verifica validação, deduplicação e agregação. Ele é ignorado quando a variável não está definida. Não aponte esse teste para produção.
+
 ## Fontes do projeto
 
 - [`docs/modelagem-mobile-v1.md`](./docs/modelagem-mobile-v1.md): fluxos e regras de produto residencial.

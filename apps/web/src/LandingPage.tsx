@@ -1,39 +1,20 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ArrowRight, Check, CircleHelp, ListChecks, ShoppingBasket, UsersRound } from "lucide-react";
 import styles from "./LandingPage.module.css";
+import { appOrigin as getAppOrigin, track, usePageView } from "./landing/metrics";
+import { GuideLinks } from "./landing/Guides";
 
 type ContactChannel = "email" | "whatsapp";
 type PublicConfig = { signupEnabled: boolean };
-type Campaign = { utm_source?: string; utm_medium?: string; utm_campaign?: string };
 const consentVersion = "lista-espera-2026-10";
-const appOrigin = import.meta.env.VITE_APP_ORIGIN || window.location.origin;
-
-function campaignFromLocation(): Campaign {
-  const params = new URLSearchParams(window.location.search);
-  return Object.fromEntries(["utm_source", "utm_medium", "utm_campaign"].flatMap((key) => {
-    const value = params.get(key)?.trim().slice(0, 100);
-    return value ? [[key, value]] : [];
-  })) as Campaign;
-}
-
-async function track(event: "view" | "form_start", campaign: Campaign, channel?: ContactChannel) {
-  try {
-    await fetch(`${appOrigin}/api/public/landing-events`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "omit",
-      body: JSON.stringify({ event, channel, ...campaign }),
-    });
-  } catch {
-    // A indisponibilidade da métrica não deve bloquear a página.
-  }
-}
 
 export function LandingPage() {
-  const campaign = useRef<Campaign>(campaignFromLocation());
-  const viewSent = useRef(false);
+  const appOrigin = getAppOrigin();
+  const currentAcquisition = usePageView("landing");
   const startSent = useRef(false);
-  const [config, setConfig] = useState<PublicConfig>({ signupEnabled: false });
+  const [config, setConfig] = useState<PublicConfig>();
+  const [configError, setConfigError] = useState(false);
+  const [configAttempt, setConfigAttempt] = useState(0);
   const [channel, setChannel] = useState<ContactChannel>("email");
   const [contact, setContact] = useState("");
   const [consent, setConsent] = useState(false);
@@ -42,20 +23,25 @@ export function LandingPage() {
   const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
-    if (!viewSent.current) {
-      viewSent.current = true;
-      void track("view", campaign.current);
-    }
-    void fetch(`${appOrigin}/api/public/config`, { credentials: "omit" })
-      .then((response) => response.ok ? response.json() as Promise<PublicConfig> : undefined)
-      .then((value) => { if (value) setConfig({ signupEnabled: value.signupEnabled === true }); })
-      .catch(() => undefined);
-  }, []);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => { setConfigError(true); controller.abort(); }, 10_000);
+    setConfigError(false);
+    void fetch(`${appOrigin}/api/public/config`, { credentials: "omit", signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("config");
+        const value = await response.json() as PublicConfig;
+        if (typeof value.signupEnabled !== "boolean") throw new Error("config");
+        if (!controller.signal.aborted) setConfig(value);
+      })
+      .catch(() => { if (!controller.signal.aborted) setConfigError(true); })
+      .finally(() => clearTimeout(timeout));
+    return () => { clearTimeout(timeout); controller.abort(); };
+  }, [appOrigin, configAttempt]);
 
   function startForm() {
     if (startSent.current) return;
     startSent.current = true;
-    void track("form_start", campaign.current, channel);
+    void track("form_start", "landing", currentAcquisition(), channel);
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -73,7 +59,7 @@ export function LandingPage() {
           consent,
           consentVersion,
           companyWebsite: (event.currentTarget.elements.namedItem("companyWebsite") as HTMLInputElement).value,
-          ...campaign.current,
+          ...currentAcquisition(),
         }),
       });
       if (!response.ok) {
@@ -96,17 +82,17 @@ export function LandingPage() {
         <div className={styles.heroCopy}>
           <span className={styles.eyebrow}>CASA COMPARTILHADA, VIDA MAIS LEVE</span>
           <h1 id="landing-title">Tarefas e compras da casa, <em>com os combinados à vista.</em></h1>
-          <p>Organize rotinas, responsabilidades e reposição em um lugar compartilhado. Menos cobrança; mais clareza pra quem divide a casa.</p>
-          {config.signupEnabled ? (
+          <p>Um app para organizar tarefas domésticas, rotinas e compras compartilhadas. Menos cobrança; mais clareza pra quem divide a casa.</p>
+          {config?.signupEnabled ? (
             <a className={styles.primaryCta} href={`${appOrigin}/criar-conta`}>Criar minha conta <ArrowRight size={19} aria-hidden="true" /></a>
           ) : (
-            <a className={styles.primaryCta} href="#lista-de-espera">Entrar na lista de espera <ArrowRight size={19} aria-hidden="true" /></a>
+            <a className={styles.primaryCta} href="#lista-de-espera">{config ? "Entrar na lista de espera" : "Ver disponibilidade"} <ArrowRight size={19} aria-hidden="true" /></a>
           )}
           <a className={styles.loginLink} href={`${appOrigin}/entrar`}>Já tem acesso? Entrar</a>
           <span className={styles.signature}>A casa não é um ringue.</span>
         </div>
         <div className={styles.heroVisual} aria-label="Prévia do app Chega de Briga">
-          <img src="/prints/inicio.jpg?v=3f70899" alt="Início do app com tarefas atribuídas a moradores e um resumo de três itens de compras, incluindo um urgente." />
+          <img src="/prints/inicio.jpg?v=3f70899" width="380" height="682" fetchPriority="high" alt="Início do app com tarefas atribuídas a moradores e um resumo de três itens de compras, incluindo um urgente." />
           <span className={styles.sticker}>TÁ<br />COMBINADO.</span>
           <img className={styles.spark} src="/faisca.svg" alt="" />
         </div>
@@ -126,7 +112,7 @@ export function LandingPage() {
               <h3>Quem faz, quando faz. Tudo combinado.</h3>
               <p>Organize tarefas únicas e recorrentes e deixe a responsabilidade clara para todo mundo.</p>
             </div>
-            <img className={styles.taskScreenshot} src="/prints/tarefas.jpg?v=3f70899" alt="Visão semanal com o lixo atrasado atribuído a Júlia, a louça diária em revezamento e o banheiro atribuído a Caio." loading="lazy" />
+            <img className={styles.taskScreenshot} src="/prints/tarefas.jpg?v=3f70899" width="380" height="877" alt="Visão semanal com o lixo atrasado atribuído a Júlia, a louça diária em revezamento e o banheiro atribuído a Caio." loading="lazy" />
           </article>
           <article className={`${styles.showcaseCard} ${styles.shoppingCard}`} id="compras">
             <div className={styles.showcaseCopy}>
@@ -135,7 +121,7 @@ export function LandingPage() {
               <h3>O que falta já fica anotado.</h3>
               <p>Adicione itens e quantidades para a próxima compra, visíveis para quem divide a casa.</p>
             </div>
-            <img src="/prints/compras.jpg?v=3f70899" alt="Lista de compras com Leite e duas caixas para comprar antes, além de Café e Detergente na próxima compra." loading="lazy" />
+            <img src="/prints/compras.jpg?v=3f70899" width="380" height="682" alt="Lista de compras com Leite e duas caixas para comprar antes, além de Café e Detergente na próxima compra." loading="lazy" />
           </article>
         </div>
         <p className={styles.previewNote}>Prévia ilustrativa com dados fictícios.</p>
@@ -160,18 +146,29 @@ export function LandingPage() {
         </div>
         <div className={styles.faqList}>
           <details><summary><CircleHelp size={19} aria-hidden="true" /> O que é o Chega de Briga?</summary><p>Um app para organizar tarefas, rotinas e compras de quem divide uma casa, com os combinados visíveis para os moradores.</p></details>
-          <details><summary><CircleHelp size={19} aria-hidden="true" /> Já posso criar uma conta?</summary><p>{config.signupEnabled ? "Sim. O cadastro público está aberto." : "Ainda não. Nesta fase, o cadastro é por convite. Entre na lista de espera e avisaremos quando houver novidades."}</p></details>
+          <details><summary><CircleHelp size={19} aria-hidden="true" /> Para quem é o app?</summary><p>Para pessoas que dividem uma casa: casais, famílias, amigos e moradores de repúblicas. Cada casa reúne seus moradores, tarefas e lista de compras.</p></details>
+          <details><summary><CircleHelp size={19} aria-hidden="true" /> Preciso instalar para usar?</summary><p>Você pode usar pelo navegador. Em navegadores compatíveis, também pode instalar a PWA para abrir o app pela tela inicial.</p></details>
+          <details><summary><CircleHelp size={19} aria-hidden="true" /> Dá para repetir tarefas e revezar responsáveis?</summary><p>Sim. Há tarefas únicas e rotinas recorrentes, com pessoa fixa, revezamento entre moradores ou responsabilidade a combinar.</p></details>
+          <details><summary><CircleHelp size={19} aria-hidden="true" /> Como funciona a lista de compras?</summary><p>Os moradores compartilham itens, quantidades opcionais e observações. Você pode destacar o que precisa comprar antes e marcar o que já foi comprado. O app não calcula estoque nem sugere quantidades automaticamente.</p></details>
+          <details><summary><CircleHelp size={19} aria-hidden="true" /> Já posso criar uma conta?</summary><p>{!config ? "Consulte a disponibilidade de acesso na seção abaixo. Quando o cadastro estiver fechado, você poderá entrar na lista de espera." : config.signupEnabled ? "Sim. O cadastro público está aberto." : "Ainda não. Nesta fase, o cadastro é por convite. Entre na lista de espera e avisaremos quando houver novidades."}</p></details>
           <details><summary><CircleHelp size={19} aria-hidden="true" /> Como vou receber o aviso?</summary><p>Você escolhe e-mail ou WhatsApp no formulário. O contato só será usado para avisar sobre a abertura, com sua autorização.</p></details>
         </div>
       </section>
 
+      <GuideLinks />
+
       <section className={styles.waitlist} id="lista-de-espera" aria-labelledby="waitlist-title">
         <div className={styles.waitlistCopy}>
-          <span className={styles.eyebrow}>{config.signupEnabled ? "ACESSO ABERTO" : "PRIMEIRO AVISO, SEM SPAM"}</span>
-          <h2 id="waitlist-title">{config.signupEnabled ? "Sua casa pode começar por aqui." : "Quer saber quando abrir?"}</h2>
-          <p>{config.signupEnabled ? "Crie uma conta e organize os combinados da sua casa." : "Deixe um contato e escolha por onde prefere receber o aviso."}</p>
+          <span className={styles.eyebrow}>{!config ? "VAMOS COMBINAR?" : config.signupEnabled ? "ACESSO ABERTO" : "PRIMEIRO AVISO, SEM SPAM"}</span>
+          <h2 id="waitlist-title">{!config ? "Consulte o acesso ao app." : config.signupEnabled ? "Sua casa pode começar por aqui." : "Quer saber quando abrir?"}</h2>
+          <p>{!config ? "Veja a disponibilidade de cadastro ou receba um aviso quando houver novidades." : config.signupEnabled ? "Crie uma conta e organize os combinados da sua casa." : "Deixe um contato e escolha por onde prefere receber o aviso."}</p>
         </div>
-        {config.signupEnabled ? (
+        {!config ? (
+          <div>
+            {configError ? <><p role="alert">Não conseguimos verificar a disponibilidade agora.</p><button className={styles.submit} onClick={() => setConfigAttempt((value) => value + 1)}>Tentar novamente</button></> : <p role="status">Consultando disponibilidade…</p>}
+            <noscript>Ative o JavaScript para consultar a disponibilidade e se inscrever. Os guias e a apresentação do app continuam disponíveis.</noscript>
+          </div>
+        ) : config.signupEnabled ? (
           <a className={styles.primaryCta} href={`${appOrigin}/criar-conta`}>Criar minha conta <ArrowRight size={19} aria-hidden="true" /></a>
         ) : submitted ? (
           <div className={styles.success} role="status"><Check size={22} aria-hidden="true" /><div><strong>Pronto, anotamos seu contato.</strong><p>Vamos avisar sobre a abertura pelo canal escolhido.</p></div></div>

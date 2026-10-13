@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { acquisitionLabels, publicPageInfo } from "../landing/pages";
 import {
   Link,
   NavLink,
@@ -1814,7 +1815,7 @@ function WaitlistAnalyticsContent({ data }: { data: WaitlistAnalytics }) {
   const range = `${date(data.from)} a ${date(data.to)}`;
   return (
     <>
-      <Message>Período: {range}. A conversão divide inscrições válidas por carregamentos da página; recarregamentos também contam. Não há visitantes únicos.</Message>
+      <Message>Período: {range}. A conversão divide inscrições válidas por carregamentos da landing; visitas aos guias ficam separadas. Recarregamentos também contam. Não há visitantes únicos.</Message>
       <div className={styles.stats}>
         <Stat label="Carregamentos" value={data.pageLoads} detail="Visualizações; recargas contam" />
         <Stat label="Inícios do formulário" value={data.formStarts} detail="Primeiro foco no formulário por carregamento" />
@@ -1822,6 +1823,20 @@ function WaitlistAnalyticsContent({ data }: { data: WaitlistAnalytics }) {
         <Stat label="Conversão" value={`${Math.round(data.conversion * 100)}%`} detail={`${data.signups} inscrições ÷ ${data.pageLoads} carregamentos`} />
       </div>
       {data.signupEnabled ? <Funnel title="Landing até primeiro valor" steps={data.publicFunnel} note="Contas públicas criadas e casas com 7 dias completos desde a abertura. As etapas são agregadas; nenhum contato da espera é associado a uma conta." /> : <Message>Cadastro público fechado. O funil agregado landing → conta → casa → primeiro valor aparecerá quando a configuração de lançamento for habilitada.</Message>}
+      <Card>
+        <h2>Origem do tráfego</h2>
+        <p className={styles.finePrint}>Origem informada por campanha ou referência, preservada na mesma aba por até 30 minutos. Google inclui origens que não conseguimos distinguir, como busca tradicional e respostas com IA. Não acompanhamos jornadas individuais.</p>
+        {data.bySource?.length ? <div className={styles.tableWrap} role="region" aria-label="Métricas agregadas por origem" tabIndex={0}><table>
+          <caption>Inscrições e carregamentos por origem; conversão usa somente a landing</caption>
+          <thead><tr><th>Origem</th><th>Landing</th><th>Guias</th><th>Inícios</th><th>Inscrições</th><th>Conversão</th></tr></thead>
+          <tbody>{data.bySource.map((row) => <tr key={row.source}><th scope="row">{acquisitionLabels[row.source]}</th><td>{row.pageLoads}</td><td>{row.guideViews}</td><td>{row.formStarts}</td><td>{row.signups}</td><td>{row.conversion === null ? "—" : `${Math.round(row.conversion * 100)}%`}</td></tr>)}</tbody>
+        </table></div> : <p>Ainda não há dados de origem neste período.</p>}
+        <p className={styles.finePrint}>“Origem desconhecida” inclui registros anteriores à atribuição. “Direto / não identificado” indica acesso sem origem disponível. Tráfego do Google não significa necessariamente busca orgânica.</p>
+      </Card>
+      <Card>
+        <h2>Leituras dos guias</h2>
+        {data.byGuide?.length ? <div className={styles.tableWrap} role="region" aria-label="Carregamentos por guia" tabIndex={0}><table><caption>Visualizações dos guias; recargas contam</caption><thead><tr><th>Guia</th><th>Carregamentos</th></tr></thead><tbody>{data.byGuide.map((row) => <tr key={row.page}><th scope="row">{publicPageInfo[row.page].title.replace(" | Chega de Briga", "")}</th><td>{row.views}</td></tr>)}</tbody></table></div> : <p>Ainda não há leituras de guias neste período.</p>}
+      </Card>
       <div className={styles.twoColumns}>
         <Card>
           <span className={styles.eyebrow}>EVOLUÇÃO / {data.period} DIAS</span>

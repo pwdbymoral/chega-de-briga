@@ -9,7 +9,7 @@ Abra [o manual visual](./index.html) no navegador. Ele contém as regras de marc
 - [`componentes.md`](./componentes.md): fonte única das decisões de uso, limites dos componentes web e padrões de interface. As APIs e props continuam definidas pelo código em `apps/web/src/components`.
 - [`assets/logo-editavel.svg`](./assets/logo-editavel.svg): assinatura principal com texto editável. Os demais logos têm letras convertidas em vetor e podem ser visualizados sem instalar fontes.
 - [`assets/`](./assets/): logos, símbolos, elementos gráficos, ícones e PNGs para a futura PWA.
-- [`fonts/`](./fonts/): Inter e Comfortaa locais, com as respectivas licenças SIL OFL.
+- [`fonts/`](./fonts/): Inter e Comfortaa locais, com as respectivas licenças SIL OFL. A web usa WOFF2, convertido dos originais TTF/OTF sem remover glifos nem alterar métricas; os originais permanecem para edição.
 
 Os arquivos de imagem em `assets/` e o nome e as marcas Chega de Briga estão reservados; não são cobertos pela licença do código. O HTML, CSS e tokens do manual seguem a licença do código. Veja [`../LICENSING.md`](../LICENSING.md). As fontes continuam sob SIL OFL.
 

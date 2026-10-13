@@ -8,7 +8,9 @@
     "dev:full": "vite --host 127.0.0.1 --port ${CDB_WEB_PORT:-5173} --strictPort",
     "dev:demo": "vite --host 127.0.0.1 --mode demo",
     "build": "tsc -b && vite build",
-    "build:landing": "vite build --mode landing",
+    "build:landing": "node build-landing.mjs",
+    "preview:landing": "node preview-landing.mjs",
+    "check:landing": "node check-landing.mjs",
     "preview": "vite preview --host 127.0.0.1",
     "check": "tsc -b && vitest run"
   },

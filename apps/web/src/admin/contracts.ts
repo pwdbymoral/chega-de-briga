@@ -1,4 +1,5 @@
 import type { HouseData } from "../resident/ResidentModel";
+import type { AcquisitionSource, PublicPage } from "@chega-de-briga/domain";
 
 export type HouseholdRole = "responsavel" | "morador";
 export type AccessSource = "lista" | "convite_admin" | "convite_morador" | "publico";
@@ -162,6 +163,8 @@ export interface WaitlistAnalytics {
   conversion: number;
   byChannel: { channel: WaitlistContactChannel; count: number }[];
   byCampaign: { campaign: string; pageLoads: number; formStarts: number; signups: number }[];
+  bySource: { source: AcquisitionSource; pageLoads: number; guideViews: number; formStarts: number; signups: number; conversion: number | null }[];
+  byGuide: { page: Exclude<PublicPage, "landing">; views: number }[];
   daily: { date: string; pageLoads: number; formStarts: number; signups: number }[];
   publicFunnel: FunnelStep[];
 }

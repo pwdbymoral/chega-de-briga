@@ -81,7 +81,7 @@
 .signature {
   display: inline-block;
   margin-top: clamp(1.5rem, 4vw, 3rem);
-  color: var(--brand-lilac);
+  color: var(--brand-white);
   font: 900 clamp(1.1rem, 2vw, 1.55rem)/1.1 var(--font-display);
   letter-spacing: -0.035em;
 }
@@ -105,6 +105,7 @@
   content: "";
 }
 .heroVisual > img:first-child {
+  height: auto;
   width: clamp(220px, 29vw, 365px);
   max-height: 520px;
   object-fit: cover;
@@ -128,7 +129,7 @@
   background: var(--brand-lilac);
   color: var(--brand-ink);
   box-shadow: 6px 7px 0 var(--brand-ink);
-  font: 900 clamp(1rem, 1.6vw, 1.45rem)/0.95 var(--font-display);
+  font: 900 clamp(0.8rem, 1.1vw, 1rem)/0.95 var(--font-display);
   text-align: center;
 }
 .spark { position: absolute; top: 7%; right: 7%; width: clamp(62px, 8vw, 100px); filter: drop-shadow(4px 4px 0 var(--brand-ink)); }
@@ -170,6 +171,7 @@
 .showcaseCopy h3 { max-width: 18ch; margin: 0.7rem 0; font: 900 clamp(1.55rem, 2.7vw, 2.4rem)/1.03 var(--font-display); letter-spacing: -0.04em; }
 .showcaseCopy p { max-width: 44ch; margin: 0; color: var(--color-text-muted); line-height: 1.5; }
 .showcaseCard > img {
+  height: auto;
   align-self: center;
   width: min(100% - 2rem, 390px);
   max-height: 620px;
@@ -213,14 +215,14 @@
   scroll-margin-top: 1rem;
 }
 .waitlistCopy { align-self: start; }
-.waitlistCopy .eyebrow { color: var(--brand-lilac); }
+.waitlistCopy .eyebrow { color: var(--brand-white); }
 .waitlistCopy h2 { margin: 0.8rem 0; font: 900 clamp(2.2rem, 4.5vw, 4.2rem)/0.98 var(--font-display); letter-spacing: -0.055em; text-wrap: balance; }
 .waitlistCopy p { max-width: 40ch; margin: 0; line-height: 1.5; color: rgb(255 255 255 / 87%); }
 .form { display: grid; gap: 0.8rem; min-width: 0; }
 .channelChoice { display: flex; flex-wrap: wrap; gap: 0.5rem 1.2rem; margin: 0; padding: 0; border: 0; }
 .channelChoice legend,
 .contactLabel { width: 100%; margin-bottom: 0.1rem; font-size: var(--type-sm); font-weight: 800; }
-.channelChoice label { display: inline-flex; align-items: center; gap: 0.45rem; min-height: 44px; cursor: pointer; }
+.channelChoice label { display: inline-flex; align-items: center; gap: 0.45rem; min-height: 48px; cursor: pointer; }
 .form input[type="radio"],
 .form input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--brand-lilac); }
 .form input[type="email"],

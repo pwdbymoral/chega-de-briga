@@ -2,7 +2,7 @@
 
 @font-face {
   font-family: "Inter";
-  src: url("./fonts/Inter-Regular.ttf") format("truetype");
+  src: url("./fonts/Inter-Regular.woff2") format("woff2");
   font-style: normal;
   font-weight: 400;
   font-display: swap;
@@ -10,7 +10,7 @@
 
 @font-face {
   font-family: "Inter";
-  src: url("./fonts/Inter-Bold.ttf") format("truetype");
+  src: url("./fonts/Inter-Bold.woff2") format("woff2");
   font-style: normal;
   font-weight: 700;
   font-display: swap;
@@ -18,7 +18,7 @@
 
 @font-face {
   font-family: "Inter Display";
-  src: url("./fonts/InterDisplay-Black.ttf") format("truetype");
+  src: url("./fonts/InterDisplay-Black.woff2") format("woff2");
   font-style: normal;
   font-weight: 900;
   font-display: swap;
@@ -26,7 +26,7 @@
 
 @font-face {
   font-family: "Comfortaa";
-  src: url("./fonts/Comfortaa-Bold.otf") format("opentype");
+  src: url("./fonts/Comfortaa-Bold.woff2") format("woff2");
   font-style: normal;
   font-weight: 700;
   font-display: swap;
