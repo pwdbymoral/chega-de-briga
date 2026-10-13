@@ -106,7 +106,7 @@ export function LandingPage() {
           <span className={styles.signature}>A casa não é um ringue.</span>
         </div>
         <div className={styles.heroVisual} aria-label="Prévia do app Chega de Briga">
-          <img src="/prints/inicio.jpg" alt="Início do app com tarefas atribuídas a moradores e um resumo de três itens de compras, incluindo um urgente." />
+          <img src="/prints/inicio.jpg?v=3f70899" alt="Início do app com tarefas atribuídas a moradores e um resumo de três itens de compras, incluindo um urgente." />
           <span className={styles.sticker}>TÁ<br />COMBINADO.</span>
           <img className={styles.spark} src="/faisca.svg" alt="" />
         </div>
@@ -126,7 +126,7 @@ export function LandingPage() {
               <h3>Quem faz, quando faz. Tudo combinado.</h3>
               <p>Organize tarefas únicas e recorrentes e deixe a responsabilidade clara para todo mundo.</p>
             </div>
-            <img className={styles.taskScreenshot} src="/prints/tarefas.jpg" alt="Visão semanal com o lixo atrasado atribuído a Júlia, a louça diária em revezamento e o banheiro atribuído a Caio." loading="lazy" />
+            <img className={styles.taskScreenshot} src="/prints/tarefas.jpg?v=3f70899" alt="Visão semanal com o lixo atrasado atribuído a Júlia, a louça diária em revezamento e o banheiro atribuído a Caio." loading="lazy" />
           </article>
           <article className={`${styles.showcaseCard} ${styles.shoppingCard}`} id="compras">
             <div className={styles.showcaseCopy}>
@@ -135,7 +135,7 @@ export function LandingPage() {
               <h3>O que falta já fica anotado.</h3>
               <p>Adicione itens e quantidades para a próxima compra, visíveis para quem divide a casa.</p>
             </div>
-            <img src="/prints/compras.jpg" alt="Lista de compras com Leite e duas caixas para comprar antes, além de Café e Detergente na próxima compra." loading="lazy" />
+            <img src="/prints/compras.jpg?v=3f70899" alt="Lista de compras com Leite e duas caixas para comprar antes, além de Café e Detergente na próxima compra." loading="lazy" />
           </article>
         </div>
         <p className={styles.previewNote}>Prévia ilustrativa com dados fictícios.</p>
