@@ -24,12 +24,15 @@ import {
   verifyTotp,
 } from "./security.js";
 import { campaignTag, normalizeWaitlistContact, waitlistConsentVersion } from "./waitlist.js";
+import { allowedLandingApiMethod } from "./public-origin.js";
 
 type UserRow = { id: string; name: string; email: string };
 type AdminRow = { id: string; email: string };
 type Body = Record<string, unknown>;
 
 const appOrigin = new URL(process.env.APP_ORIGIN ?? "http://localhost:5173").origin;
+const appOrigins = new Set([appOrigin, ...(process.env.APP_ALLOWED_ORIGINS ?? "").split(",").map((value) => value.trim()).filter(Boolean)]);
+const publicLandingOrigins = new Set((process.env.PUBLIC_LANDING_ORIGINS ?? "").split(",").map((value) => value.trim()).filter(Boolean));
 const appStage = process.env.APP_STAGE ?? "production";
 const publicSignupEnabled = process.env.PUBLIC_SIGNUP_ENABLED === "true";
 if (!["production", "preview"].includes(appStage)) throw new Error("APP_STAGE must be production or preview");
@@ -69,9 +72,25 @@ await app.register(rateLimit, { max: 120, timeWindow: "1 minute" });
 app.addHook("onRequest", async (request, reply) => {
   if (!request.url.startsWith("/api/")) return;
   reply.header("Cache-Control", "no-store, private");
+  const origin = request.headers.origin;
+  const landingMethod = allowedLandingApiMethod(
+    origin,
+    request.method,
+    request.url,
+    request.headers["access-control-request-method"],
+    publicLandingOrigins,
+  );
+  if (landingMethod) {
+    reply.header("Access-Control-Allow-Origin", origin!);
+    reply.header("Vary", "Origin");
+    if (request.method === "OPTIONS") {
+      reply.header("Access-Control-Allow-Methods", landingMethod);
+      reply.header("Access-Control-Allow-Headers", "content-type");
+      return reply.code(204).send();
+    }
+  }
   if (["POST", "PUT", "PATCH", "DELETE"].includes(request.method)) {
-    const origin = request.headers.origin;
-    if (origin !== appOrigin) {
+    if (!origin || (!appOrigins.has(origin) && !landingMethod)) {
       return reply.code(403).send({ code: "origin", message: "Origem inválida.", request_id: request.id });
     }
   }

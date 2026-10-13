@@ -2,7 +2,7 @@
 
 **Estado:** modelo de produto consolidado para a v1. Define navegação, fluxos e comportamento; não é especificação visual nem implementação das telas residenciais.
 
-**Estado atual do código:** a PWA e a API residencial com persistência PostgreSQL estão implementadas; produção ainda precisa ser configurada e validada. O cadastro público permanece fechado por padrão (`PUBLIC_SIGNUP_ENABLED=false`); enquanto isso, `/` apresenta o produto e a lista de espera. `/componentes` é uma galeria de desenvolvimento, não uma página pública.
+**Estado atual do código:** a PWA e a API residencial com persistência PostgreSQL estão implementadas; produção ainda precisa ser configurada e validada. O cadastro público permanece fechado por padrão (`PUBLIC_SIGNUP_ENABLED=false`); enquanto isso, `https://chegadebriga.forjacorp.com/` apresenta o produto e a lista de espera, e `https://app.chegadebriga.forjacorp.com/` abre o app. `/componentes` é uma galeria de desenvolvimento, não uma página pública.
 
 ## Fontes de verdade
 
@@ -16,7 +16,7 @@ Não duplicar aqui cores, espaçamentos, props ou inventário de componentes. An
 
 ## Landing, lista de espera e primeiro uso
 
-A rota pública `/` apresenta o benefício do produto, demonstra Início, Tarefas/Rotinas e Compras, explica o fluxo, responde dúvidas frequentes e oferece a lista de espera. A navegação usa âncoras para tarefas/rotinas, compras e inscrição; a galeria `/componentes` fica restrita ao ambiente de desenvolvimento. O botão de cadastro público só aparece quando `PUBLIC_SIGNUP_ENABLED` estiver habilitada no servidor.
+A landing em `chegadebriga.forjacorp.com/` apresenta o benefício do produto, demonstra Início, Tarefas/Rotinas e Compras, explica o fluxo, responde dúvidas frequentes e oferece a lista de espera. A navegação usa âncoras para tarefas/rotinas, compras e inscrição; login, privacidade e cadastro ficam em `app.chegadebriga.forjacorp.com`; a galeria `/componentes` fica restrita ao ambiente de desenvolvimento. O botão de cadastro público só aparece quando `PUBLIC_SIGNUP_ENABLED` estiver habilitada no servidor.
 
 Na lista de espera, a pessoa escolhe e-mail ou WhatsApp, informa somente o contato e autoriza explicitamente o aviso de abertura pelo canal escolhido. O aviso de privacidade explica finalidade, retenção e remoção. Nesta fase não há envio automático de e-mail, SMS ou WhatsApp. A implementação e os limites de dados ficam no [contrato de backend e deploy](./backend-deployment-contract-v1.md).
 

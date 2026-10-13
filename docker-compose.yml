@@ -10,7 +10,9 @@ services:
     environment:
       NODE_ENV: production
       APP_STAGE: ${APP_STAGE:-production}
-      APP_ORIGIN: ${COOLIFY_URL:-https://app.forjacorp.com}
+      APP_ORIGIN: ${APP_BASE_URL:-${COOLIFY_URL:-https://app.chegadebriga.forjacorp.com}}
+      APP_ALLOWED_ORIGINS: ${APP_ALLOWED_ORIGINS:-}
+      PUBLIC_LANDING_ORIGINS: ${PUBLIC_LANDING_ORIGINS:-}
       PUBLIC_SIGNUP_ENABLED: ${PUBLIC_SIGNUP_ENABLED:-false}
       PORT: "3000"
       DATABASE_URL: postgres://chegadebriga:${POSTGRES_PASSWORD:?}@database:5432/chegadebriga

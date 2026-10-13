@@ -30,7 +30,9 @@ pnpm build
 pnpm preview
 ```
 
-O build gera a PWA em `apps/web/dist` e a API em `apps/api/dist`. O [`Dockerfile`](./Dockerfile) constrói o serviço único, aplica as migrações PostgreSQL e inicia a API que serve a PWA e os endpoints `/api`. `pnpm preview` serve somente a interface do Vite; não substitui a execução completa do serviço.
+O build gera a PWA do app em `apps/web/dist` e a API em `apps/api/dist`. O [`Dockerfile`](./Dockerfile) constrói o serviço do app, aplica as migrações PostgreSQL e inicia a API. A landing estática é gerada à parte por `pnpm build:landing`, em `apps/web/dist-landing`; esse build não inclui autenticação, console, service worker ou manual visual. `pnpm preview` serve somente a interface do Vite; não substitui a execução completa do serviço.
+
+Em produção, `chegadebriga.forjacorp.com` serve somente a landing e `app.chegadebriga.forjacorp.com` serve a PWA e API. A landing chama apenas as rotas públicas permitidas na configuração `PUBLIC_LANDING_ORIGINS`; o app mantém API same-origin.
 
 ## Fontes do projeto
 

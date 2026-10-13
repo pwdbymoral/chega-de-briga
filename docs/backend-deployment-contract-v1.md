@@ -19,7 +19,7 @@ Não copiar para este documento regras de interface, recorrência ou métricas j
 | Abertura pública | `PUBLIC_SIGNUP_ENABLED=false` por padrão. Habilitar no runtime somente após validar o lançamento; o servidor grava a primeira data de abertura uma única vez e elimina todos os contatos da espera ao completar 90 dias. |
 | Hospedagem | Coolify self-hosted já existente; PostgreSQL e app no servidor atual, sem serviço pago adicional. |
 | Arquitetura | Um recurso Docker Compose do Git inicia dois serviços privados: Node/TypeScript (PWA + API) e PostgreSQL. Só o app recebe domínio público; o banco fica na rede privada do Compose. |
-| Produção | `main` publica em `https://app.forjacorp.com`. |
+| Produção | `main` publica a PWA/API em `https://app.chegadebriga.forjacorp.com` e a landing estática em `https://chegadebriga.forjacorp.com`. |
 | Pré-visualização | Coolify cria um preview para cada PR em `https://<número>.staging.forjacorp.com`; não existe instância fixa de staging nem branch permanente `staging`. Cada preview usa banco descartável e isolado. |
 | Identidade inicial | A conta de acesso do responsável será uma única identidade com papel administrativo e residencial. O endereço usado para login fica somente na configuração privada do Coolify. Ambos usam a mesma senha; a área admin também exige TOTP. A casa começa sem dados, para validar o cadastro e a criação da casa pelo fluxo normal. |
 | Login residencial | E-mail e senha; e-mail precisa ser verificado. Cadastro só por autorização ativa ou convite válido. |
@@ -40,7 +40,9 @@ O e-mail de login do responsável e o usuário SMTP são configuração privada:
 | Variável | Produção | Preview | Observação |
 | --- | --- | --- | --- |
 | `APP_STAGE` | `production` | `preview` | Define quais integrações são obrigatórias no início do serviço. |
-| `APP_ORIGIN` | `COOLIFY_URL` (com fallback para `https://app.forjacorp.com`) | URL HTTPS do próprio PR, fornecida por `COOLIFY_URL` | Usada em links, validação de origem e cookies. |
+| `APP_BASE_URL` | `https://app.chegadebriga.forjacorp.com` | Omitir para usar a URL do PR via `COOLIFY_URL` no fallback do Compose | Alimenta `APP_ORIGIN`, origem canônica dos links, validação e cookies. `COOLIFY_URL` pode listar vários domínios; a produção deve definir esta variável explicitamente. |
+| `APP_ALLOWED_ORIGINS` | `https://app.forjacorp.com` durante a migração | Omitida | Origem adicional exata autorizada a alterar dados do app; manter o domínio antigo somente durante a transição. |
+| `PUBLIC_LANDING_ORIGINS` | `https://chegadebriga.forjacorp.com,https://chega-de-briga.forjacorp.com` durante a migração | Omitida | Permite CORS sem credenciais somente para `GET /api/public/config`, `POST /api/public/landing-events` e `POST /api/waitlist`. |
 | `PUBLIC_SIGNUP_ENABLED` | `false` | `false` | Só `true` abre cadastro sem convite/autorização e muda a CTA pública; validação de e-mail e convites existentes continuam ativos. |
 | `POSTGRES_PASSWORD` | Segredo de produção no Coolify | Segredo separado, sem credencial de produção | Use valor hexadecimal para formar a URL PostgreSQL sem ambiguidades. O Compose deriva `DATABASE_URL` e injeta a mesma senha no serviço do banco. |
 | `DATABASE_URL` | Derivada pelo Compose para o PostgreSQL persistente | Derivada pelo Compose para o PostgreSQL descartável do PR | Não configurar ou compartilhar URL externa entre ambientes. O serviço `database` não publica porta. |
@@ -61,19 +63,24 @@ Em `NODE_ENV=production`, o serviço recusa iniciar quando faltam `APP_ORIGIN`, 
 
 ```mermaid
 flowchart LR
-  B[Browser / PWA] -->|HTTPS mesma origem| W[App Node/TypeScript\nPWA + API + console]
+  B[Browser] -->|HTTPS, site estático| L[Landing\nchegadebriga.forjacorp.com]
+  L -->|CORS exato, sem credenciais\nconfiguração, métricas e lista de espera| W[App + API\napp.chegadebriga.forjacorp.com]
+  B -->|HTTPS mesma origem| W
   W -->|rede privada do Compose| DB[(PostgreSQL)]
   W -->|SMTP de saída| G[Gmail]
   W -->|Web Push| P[Serviços push do navegador]
-  C[Coolify] -->|main| PROD[app.forjacorp.com]
+  C[Coolify] -->|main: Nixpacks| L
+  C -->|main: Compose| W
   C -->|cada PR| PREVIEW[<id>.staging.forjacorp.com]
-  PROD --> W
   PREVIEW --> WP[Stack Compose do PR\napp + banco descartável + volume isolado]
 ```
 
 - A API fica sob `/api`; as rotas administrativas HTTP usam `/api/admin`. `/admin` continua sendo a rota da interface. Isso evita colisão entre rotas do React e endpoints.
 - A API residencial usa `/api/auth`, `/api/me`, `/api/households/:id/...` e `/api/push`. Cada chamada valida sessão, papel residencial ativo e vínculo ativo com a casa no servidor.
-- A PWA pública e o console de produção são servidos pelo mesmo app. O build público inclui o console somente quando ele estiver conectado ao backend real; as fixtures e o gateway demo nunca são incluídos.
+- O build Docker do app serve a PWA, API e console protegido. O recurso Nixpacks da landing publica `apps/web/dist-landing`, que contém somente a página de marketing e os assets visuais; não inclui rotas de autenticação, console, service worker ou o manual em `design-system/`.
+- O build estático recebe `VITE_APP_ORIGIN=https://app.chegadebriga.forjacorp.com` no comando de build para apontar login, privacidade e chamadas públicas à API. Essa URL é pública; nunca colocar segredos em variáveis `VITE_*`, pois o Vite as incorpora nos arquivos do site.
+- A landing acessa a API do app somente nas três rotas públicas listadas acima. O servidor responde CORS para origens exatas de `PUBLIC_LANDING_ORIGINS`, sem cookies e sem liberar o restante da API. As mutações do app aceitam somente `APP_ORIGIN` e as origens explícitas de `APP_ALLOWED_ORIGINS`.
+- Durante a migração, os domínios antigos permanecem aliases funcionais. Cookies e armazenamento local são separados por origem; moradores precisarão entrar de novo no novo domínio e instalar a PWA novamente. Antes de aposentar o alias antigo, sincronizar alterações offline pendentes e manter `app.forjacorp.com` ativo durante a transição.
 - PostgreSQL não recebe tráfego público. O app se conecta pelo nome do serviço na rede privada do Compose. O volume nomeado é persistente na produção; Coolify isola o volume por PR e o remove com o preview. O volume não substitui backups.
 - Coolify publica produção a partir de `main`. Preview deployments são habilitados para membros do repositório; previews de forks públicos ficam desligados. Ao fechar ou mesclar o PR, o Coolify remove o preview.
 - Cada preview tem containers, rede e volume de banco isolados, com dados sintéticos descartáveis. Variáveis de produção não são passadas aos previews; usar uma credencial e uma chave de criptografia exclusivas do grupo de preview. Não recebe backup, e-mails, assinaturas push ou dados de produção. Envio de e-mail e push fica desativado nos previews.
@@ -163,14 +170,16 @@ Respostas de erro usam `{ code, message, request_id }`; validar entrada no servi
 
 ## Sequência de primeiro provisionamento
 
-1. Criar uma aplicação Git Docker Compose no Coolify usando `docker-compose.yml`, com os serviços `app` e `database`. Definir a senha do banco e a chave de criptografia em Production; definir credenciais distintas no grupo Preview Deployment. Manter valores de login, SMTP e chaves privadas fora do Git.
-2. Direcionar `https://app.forjacorp.com` ao serviço `app` na porta interna `3000`; manter o serviço estático atual como rollback até o novo app passar a verificação de deploy.
-3. No serviço `database`, configurar backup PostgreSQL diário e retenção de 30 dias; executar um backup manual e conferir o resultado. O Coolify oferece backup com reconhecimento de PostgreSQL também para componentes de um serviço Docker Compose. [Coolify: backups PostgreSQL](https://coolify.io/docs/databases/backups)
-4. Aplicar migrações antes de atender tráfego. A rota de saúde informa estado do processo e do banco, sem dados ou segredos.
-5. Definir `BOOTSTRAP_ADMIN_EMAIL` diretamente no Coolify, abrir `/admin/setup`, solicitar o link enviado a esse endereço, definir uma senha e ativar TOTP. Guardar os códigos de recuperação fora do servidor e remover `BOOTSTRAP_ADMIN_EMAIL` após o primeiro uso.
-6. No console, autorizar o mesmo endereço de acesso. Abrir `/criar-conta` e usar esse e-mail e a mesma senha para vincular o papel residencial. Validar a criação da casa pelo fluxo normal, sem dados de demonstração. Depois, enviar o convite à outra moradora pelo app.
-7. Sem fixtures ou dados demo em produção. Testar envio de convite/recuperação, login admin com TOTP, login residencial, backup e restauração descartável antes do uso contínuo.
-8. Confirmar DNS curinga `*.staging.forjacorp.com` antes de habilitar previews. No Coolify, restringir previews a membros do repositório, configurar `{{pr_id}}.staging.forjacorp.com` e preencher o grupo Preview Deployment com `APP_STAGE=preview`, chave própria e senha de banco não produtiva. Fechar um PR remove containers, rede e volume daquele preview.
+1. Manter no Coolify o recurso Docker Compose existente com os serviços `app` e `database`; preservar o volume PostgreSQL. Definir `APP_BASE_URL=https://app.chegadebriga.forjacorp.com`, `APP_ALLOWED_ORIGINS=https://app.forjacorp.com` e `PUBLIC_LANDING_ORIGINS=https://chegadebriga.forjacorp.com,https://chega-de-briga.forjacorp.com` no grupo Production. Preservar as demais variáveis e segredos; deixar `APP_BASE_URL` fora do grupo de previews.
+2. Adicionar `https://app.chegadebriga.forjacorp.com` ao recurso Compose na porta `3000`, mantendo `https://app.forjacorp.com` como alias durante a transição. Os aliases `www` gerados pelo Coolify redirecionam à forma sem `www`. A raiz do app abre a área residencial/login; o `start_url` da PWA é `/casa`.
+3. Manter o recurso Nixpacks estático separado. Usar `pnpm build:landing`, publicar `/apps/web/dist-landing`, definir `VITE_APP_ORIGIN=https://app.chegadebriga.forjacorp.com`, adicionar `https://chegadebriga.forjacorp.com` e manter `https://chega-de-briga.forjacorp.com` como alias. Os aliases `www` redirecionam para o domínio sem `www`; o Git App do Coolify mantém deploy automático de `main`.
+4. Validar primeiro o deploy nos domínios novos, HTTPS, CORS e lista de espera; manter ambos os domínios antigos ativos até confirmar uso e sincronização das filas offline. Não remover ou recriar o recurso PostgreSQL.
+5. No serviço `database`, configurar backup PostgreSQL diário e retenção de 30 dias; executar um backup manual e conferir o resultado. O Coolify oferece backup com reconhecimento de PostgreSQL também para componentes de um serviço Docker Compose. [Coolify: backups PostgreSQL](https://coolify.io/docs/databases/backups)
+6. Aplicar migrações antes de atender tráfego. A rota de saúde informa estado do processo e do banco, sem dados ou segredos.
+7. Definir `BOOTSTRAP_ADMIN_EMAIL` diretamente no Coolify, abrir `/admin/setup`, solicitar o link enviado a esse endereço, definir uma senha e ativar TOTP. Guardar os códigos de recuperação fora do servidor e remover `BOOTSTRAP_ADMIN_EMAIL` após o primeiro uso.
+8. No console, autorizar o mesmo endereço de acesso. Abrir `/criar-conta` e usar esse e-mail e a mesma senha para vincular o papel residencial. Validar a criação da casa pelo fluxo normal, sem dados de demonstração. Depois, enviar o convite à outra moradora pelo app.
+9. Sem fixtures ou dados demo em produção. Testar envio de convite/recuperação, login admin com TOTP, login residencial, backup e restauração descartável antes do uso contínuo.
+10. Confirmar DNS curinga `*.staging.forjacorp.com` antes de habilitar previews. No Coolify, restringir previews a membros do repositório, configurar `{{pr_id}}.staging.forjacorp.com` e preencher o grupo Preview Deployment com `APP_STAGE=preview`, chave própria e senha de banco não produtiva. Fechar um PR remove containers, rede e volume daquele preview.
 
 ## Referências oficiais
 

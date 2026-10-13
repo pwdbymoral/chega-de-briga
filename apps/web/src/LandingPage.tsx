@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ArrowRight, Check, CircleHelp, ListChecks, ShoppingBasket, UsersRound } from "lucide-react";
-import { Link } from "react-router";
 import styles from "./LandingPage.module.css";
 
 type ContactChannel = "email" | "whatsapp";
 type PublicConfig = { signupEnabled: boolean };
 type Campaign = { utm_source?: string; utm_medium?: string; utm_campaign?: string };
 const consentVersion = "lista-espera-2026-10";
+const appOrigin = import.meta.env.VITE_APP_ORIGIN || window.location.origin;
 
 function campaignFromLocation(): Campaign {
   const params = new URLSearchParams(window.location.search);
@@ -18,9 +18,10 @@ function campaignFromLocation(): Campaign {
 
 async function track(event: "view" | "form_start", campaign: Campaign, channel?: ContactChannel) {
   try {
-    await fetch("/api/public/landing-events", {
+    await fetch(`${appOrigin}/api/public/landing-events`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "omit",
       body: JSON.stringify({ event, channel, ...campaign }),
     });
   } catch {
@@ -45,7 +46,7 @@ export function LandingPage() {
       viewSent.current = true;
       void track("view", campaign.current);
     }
-    void fetch("/api/public/config")
+    void fetch(`${appOrigin}/api/public/config`, { credentials: "omit" })
       .then((response) => response.ok ? response.json() as Promise<PublicConfig> : undefined)
       .then((value) => { if (value) setConfig({ signupEnabled: value.signupEnabled === true }); })
       .catch(() => undefined);
@@ -62,9 +63,10 @@ export function LandingPage() {
     setBusy(true);
     setError("");
     try {
-      const response = await fetch("/api/waitlist", {
+      const response = await fetch(`${appOrigin}/api/waitlist`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "omit",
         body: JSON.stringify({
           channel,
           contact,
@@ -96,11 +98,11 @@ export function LandingPage() {
           <h1 id="landing-title">Tarefas e compras da casa, <em>com os combinados à vista.</em></h1>
           <p>Organize rotinas, responsabilidades e reposição em um lugar compartilhado. Menos cobrança; mais clareza pra quem divide a casa.</p>
           {config.signupEnabled ? (
-            <Link className={styles.primaryCta} to="/criar-conta">Criar minha conta <ArrowRight size={19} aria-hidden="true" /></Link>
+            <a className={styles.primaryCta} href={`${appOrigin}/criar-conta`}>Criar minha conta <ArrowRight size={19} aria-hidden="true" /></a>
           ) : (
             <a className={styles.primaryCta} href="#lista-de-espera">Entrar na lista de espera <ArrowRight size={19} aria-hidden="true" /></a>
           )}
-          <Link className={styles.loginLink} to="/entrar">Já tem acesso? Entrar</Link>
+          <a className={styles.loginLink} href={`${appOrigin}/entrar`}>Já tem acesso? Entrar</a>
           <span className={styles.signature}>A casa não é um ringue.</span>
           <span className={styles.previewBadge}>PRÉVIA DO APP · DADOS FICTÍCIOS</span>
         </div>
@@ -170,7 +172,7 @@ export function LandingPage() {
           <p>{config.signupEnabled ? "Crie uma conta e organize os combinados da sua casa." : "Deixe um contato e escolha por onde prefere receber o aviso."}</p>
         </div>
         {config.signupEnabled ? (
-          <Link className={styles.primaryCta} to="/criar-conta">Criar minha conta <ArrowRight size={19} aria-hidden="true" /></Link>
+          <a className={styles.primaryCta} href={`${appOrigin}/criar-conta`}>Criar minha conta <ArrowRight size={19} aria-hidden="true" /></a>
         ) : submitted ? (
           <div className={styles.success} role="status"><Check size={22} aria-hidden="true" /><div><strong>Pronto, anotamos seu contato.</strong><p>Vamos avisar sobre a abertura pelo canal escolhido.</p></div></div>
         ) : (
@@ -195,7 +197,7 @@ export function LandingPage() {
             />
             <label className={styles.consent}>
               <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} required />
-              <span>Autorizo o uso deste contato para receber aviso sobre a abertura pelo canal que escolhi. <Link to="/privacidade">Aviso de privacidade</Link>.</span>
+              <span>Autorizo o uso deste contato para receber aviso sobre a abertura pelo canal que escolhi. <a href={`${appOrigin}/privacidade`}>Aviso de privacidade</a>.</span>
             </label>
             <div className={styles.honeypot} aria-hidden="true"><label htmlFor="company-website">Site da empresa</label><input id="company-website" name="companyWebsite" tabIndex={-1} autoComplete="off" /></div>
             {error && <p className={styles.error} role="alert">{error}</p>}

@@ -19,7 +19,6 @@ import { BottomSheet, ConfirmDialog } from "./components/ResidentOverlays";
 import { ConsoleLoading } from "./components/ConsoleLoading";
 import { SplashScreen } from "./components/SplashScreen";
 import { useToast } from "./components/Toast";
-import { LandingPage } from "./LandingPage";
 import {
   readThemePreference,
   resolveTheme,
@@ -39,6 +38,9 @@ const DevAuth = import.meta.env.DEV
 const ProdAuth = !import.meta.env.DEV
   ? lazy(() => import("./auth/ProductionAuthApp"))
   : null;
+const DevLanding = import.meta.env.DEV
+  ? lazy(() => import("./LandingPage").then(({ LandingPage }) => ({ default: LandingPage })))
+  : null;
 
 const themeOptions = [
   { value: "system", label: "Sistema" },
@@ -51,6 +53,7 @@ const assigneeOptions = [
   { value: "caio", label: "Caio" },
   { value: "lia", label: "Lia" },
 ];
+const landingOrigin = import.meta.env.DEV ? window.location.origin : "https://chegadebriga.forjacorp.com";
 
 function useTheme() {
   const [preference, setPreference] =
@@ -117,7 +120,11 @@ function PwaStatus() {
 }
 
 function Home() {
-  return <LandingPage />;
+  return DevLanding ? (
+    <Suspense fallback={<SplashScreen title="Chega de Briga" detail="Combinados mais claros para quem divide a casa." />}>
+      <DevLanding />
+    </Suspense>
+  ) : null;
 }
 
 function Gallery() {
@@ -310,9 +317,9 @@ function Access() {
             <Link to="/entrar" className={styles.heroLink}>Entrar <ArrowRight size={18} aria-hidden="true" /></Link>
             <Link to="/criar-conta" className={styles.accessTextLink}>Tenho convite ou e-mail liberado</Link>
           </>}
-          <Link to="/" className={styles.accessTextLink}>
+          <a href={landingOrigin} className={styles.accessTextLink}>
             Voltar ao início
-          </Link>
+          </a>
         </div>
       </div>
       <img src="/faisca.svg" alt="" />
@@ -531,7 +538,7 @@ export function App() {
       )}
       <main id="conteudo">
         <Routes>
-          <Route path="/" element={<Home />} />
+          <Route path="/" element={import.meta.env.DEV ? <Home /> : <Navigate to="/casa" replace />} />
           <Route path="/componentes" element={import.meta.env.DEV ? <Gallery /> : <Navigate to="/" replace />} />
           <Route path="/acesso" element={<Access />} />
           <Route path="/privacidade" element={<PrivacyNotice />} />

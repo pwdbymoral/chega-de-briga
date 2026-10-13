@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router";
 import { LandingPage } from "./LandingPage";
 
 const ok = (body: unknown) => ({ ok: true, json: async () => body }) as Response;
@@ -19,13 +18,14 @@ describe("lista de espera da landing", () => {
     window.history.replaceState({}, "", "/?utm_source=instagram&utm_campaign=abertura");
     let submittedBody = "";
     const fetchMock = vi.fn<typeof fetch>(async (input, init) => {
-      if (String(input) === "/api/public/config") return ok({ signupEnabled: false });
-      if (String(input) === "/api/waitlist") submittedBody = String(init?.body);
+      const url = new URL(String(input), window.location.origin);
+      if (url.pathname === "/api/public/config") return ok({ signupEnabled: false });
+      if (url.pathname === "/api/waitlist") submittedBody = String(init?.body);
       return ok({});
     });
     vi.stubGlobal("fetch", fetchMock);
     const user = userEvent.setup();
-    render(<MemoryRouter><LandingPage /></MemoryRouter>);
+    render(<LandingPage />);
 
     await user.click(screen.getByRole("radio", { name: channel }));
     await user.type(screen.getByLabelText(label), contact);
@@ -33,7 +33,10 @@ describe("lista de espera da landing", () => {
     await user.click(screen.getByRole("button", { name: /entrar na lista de espera/i }));
     await screen.findByRole("status");
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/waitlist", expect.any(Object)));
+    await waitFor(() => expect(fetchMock.mock.calls.some(([input]) => new URL(String(input), window.location.origin).pathname === "/api/waitlist")).toBe(true));
+    const request = fetchMock.mock.calls.find(([input]) => new URL(String(input), window.location.origin).pathname === "/api/waitlist");
+    expect(request?.[0]).toBe(`${window.location.origin}/api/waitlist`);
+    expect(request?.[1]).toMatchObject({ credentials: "omit" });
     expect(JSON.parse(submittedBody)).toMatchObject({
       channel: channel === "E-mail" ? "email" : "whatsapp",
       contact,
