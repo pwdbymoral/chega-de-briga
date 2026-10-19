@@ -332,7 +332,6 @@ function PrivacyNotice() {
   return (
     <section className={styles.privacyNotice} aria-labelledby="privacy-title">
       <Card className={styles.privacyCard}>
-        <span className={styles.eyebrow}>PRIVACIDADE</span>
         <h1 id="privacy-title">Aviso de privacidade</h1>
         <p>Este aviso explica quais dados o Chega de Briga usa para oferecer a PWA, como eles são compartilhados e como pedir informações ou exercer seus direitos.</p>
 

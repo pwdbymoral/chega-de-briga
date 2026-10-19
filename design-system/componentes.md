@@ -58,6 +58,10 @@ O menu mostra opções textuais verticais, com destrutivas por último, e fecha 
 | Dar uma dica breve e complementar | `TooltipLayer`, usando `data-tooltip`. Ele já é montado globalmente em `apps/web/src/main.tsx`; o conteúdo da dica é visual e não substitui rótulo ou instrução acessível. | A informação é necessária para concluir a tarefa; deixe-a visível junto ao controle. Se a dica for cortada, verifique `overflow` e o contexto de empilhamento dos ancestrais; elevar `z-index` sozinho não remove recorte. |
 | Indicar abertura do app ou carregamento de uma tela de demonstração | `SplashScreen` na abertura inicial; `ConsoleLoading` como fallback de telas de autenticação e console carregadas sob demanda. Para alterar a abertura, consulte [Animação de abertura](./README.md#animação-de-abertura). | A espera é local a uma ação ou a uma parte da página; prefira feedback junto a essa ação ou conteúdo. |
 
+## Rótulo acima de título (eyebrow)
+
+Use o rótulo em caixa alta acima de um título (`.eyebrow`) só quando ele carregar uma informação que o título não dá: a fase do fluxo em uma tela de autenticação sem indicador de etapas (ex. "Recuperar acesso", "Nova senha"), a categoria de um card entre vários (ex. "Tarefas e rotinas", "Lista de compras", reforçando o ícone para quem não depende só dele), o nome de uma seção que o título não deixa óbvio (ex. "Perguntas diretas" acima de um título figurado) ou um estado que muda em runtime (ex. fase de lançamento, disponibilidade de cadastro). Não use para parafrasear ou enfeitar o título logo abaixo: se o rótulo some e nenhuma informação se perde, remova-o. Reserve a assinatura de marca ("Casa compartilhada, vida mais leve") para um só lugar de destaque por tela (o herói ou o painel fixo de autenticação); não a repita como rótulo de outras seções da mesma página.
+
 ## Listas e rolagem
 
 - Preserve nomes legíveis quando ações disputarem espaço; confira o arranjo compacto antes de aumentar a altura de todas as linhas.

@@ -195,7 +195,6 @@ function Login({ onSession }: { onSession: (session: AuthSession) => void }) {
 
   return (
     <Card className={styles.formCard}>
-      <span className={styles.eyebrow}>SUA CASA, SEUS COMBINADOS</span>
       <h1>Entrar</h1>
       <p className={styles.lead}>Bom ter você de volta.</p>
       <form className={styles.form} onSubmit={submit}>

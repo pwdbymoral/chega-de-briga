@@ -100,7 +100,6 @@ export function LandingPage() {
 
       <section className={styles.product} aria-labelledby="product-title">
         <div className={styles.sectionIntro}>
-          <span className={styles.eyebrow}>A ROTINA EM UM SÓ LUGAR</span>
           <h2 id="product-title">Cada combinado <em>mais fácil de encontrar.</em></h2>
           <p>Veja o que precisa ser feito e o que está faltando, sem depender de uma conversa perdida no grupo.</p>
         </div>
@@ -129,7 +128,6 @@ export function LandingPage() {
 
       <section className={styles.steps} aria-labelledby="steps-title">
         <div className={styles.sectionIntro}>
-          <span className={styles.eyebrow}>SEM CERIMÔNIA</span>
           <h2 id="steps-title">Comece pelo que <em>já precisa acontecer.</em></h2>
         </div>
         <ol className={styles.stepList}>
