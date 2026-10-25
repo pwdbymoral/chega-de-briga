@@ -428,7 +428,7 @@ async function deliverReviewReminders() {
        JOIN accounts a ON a.id=u.account_id
        WHERE u.status='ativo' AND a.email_verified_at IS NOT NULL AND p.review_reminder_enabled=true
        AND p.reminder_time <= (now() AT TIME ZONE h.timezone)::time
-       AND (m.last_reviewed_at IS NULL OR m.last_reviewed_at < now() - interval '7 days')`,
+       AND coalesce(m.last_reviewed_at, m.joined_at) < now() - interval '7 days'`,
     );
     for (const candidate of candidates.rows) {
       const timezone = candidate.timezone as string;
