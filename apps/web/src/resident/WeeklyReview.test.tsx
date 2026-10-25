@@ -28,12 +28,11 @@ describe("cartão de revisão semanal", () => {
 describe("tela de revisão semanal", () => {
   it("envia só as respostas da revisão, sem chamar outros métodos do gateway", async () => {
     const user = userEvent.setup();
-    const house = data();
     const submitWeeklyReview = vi.fn().mockResolvedValue(undefined);
     const saveHousehold = vi.fn();
     const gateway = { submitWeeklyReview, saveHousehold } as unknown as ResidentGateway;
     const onDone = vi.fn();
-    render(<WeeklyReviewScreen householdId="house" gateway={gateway} tasks={house.tasks} onDone={onDone} />);
+    render(<WeeklyReviewScreen householdId="house" gateway={gateway} onDone={onDone} />);
     await user.click(screen.getByRole("radio", { name: "Pesou um pouco" }));
     await user.click(screen.getByRole("radio", { name: "Sim" }));
     await user.click(screen.getByRole("button", { name: "Concluir revisão" }));

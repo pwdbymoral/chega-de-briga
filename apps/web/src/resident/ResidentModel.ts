@@ -285,3 +285,7 @@ export function taskInput(task: ResidentTask): TaskInput {
     activeTime: task.activeTime,
   };
 }
+
+export function reviewDue(reference?: string, now = Date.now()) {
+  return Boolean(reference) && now - Date.parse(reference!) >= 7 * 24 * 60 * 60 * 1000;
+}

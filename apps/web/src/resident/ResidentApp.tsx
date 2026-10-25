@@ -11,6 +11,7 @@ import {
   dateKey,
   initials,
   newId,
+  reviewDue,
   nextOccurrence,
   taskInput,
   type HouseData,
@@ -141,6 +142,7 @@ export function ResidentApp({
       try {
         const saved = await gateway.saveHousehold(id, cached.version, cached.data, cached.events);
         versionRef.current[id] = saved.version;
+        if (cached.events.some((event) => event.type !== "item_compra_adicionado")) setTaskEventVersion((value) => value + 1);
         const latest = cacheRef.current[id];
         const stillPending = latest !== cached && latest.pending;
         const savedData = { ...(latest?.data ?? cached.data), firstValueAt: saved.firstValueAt };
@@ -646,7 +648,7 @@ export function ResidentApp({
             items={data.items}
             members={data.members}
             showFirstUse={!data.firstValueAt && data.tasks.length === 0 && data.items.length === 0}
-            showWeeklyReview={Boolean(data.firstValueAt) && (!data.lastReviewedAt || Date.now() - Date.parse(data.lastReviewedAt) >= 7 * 24 * 60 * 60 * 1000)}
+            showWeeklyReview={reviewDue(data.lastReviewedAt ?? data.firstValueAt)}
             onComplete={completeTask}
             onAssume={assumeTask}
           />
@@ -661,7 +663,6 @@ export function ResidentApp({
           <WeeklyReviewScreen
             householdId={householdId}
             gateway={gateway}
-            tasks={data.tasks}
             onDone={() => {
               setDataByHouse((previous) => ({ ...previous, [householdId]: { ...(previous[householdId] ?? data), lastReviewedAt: new Date().toISOString() } }));
               navigate("/casa");

@@ -8,6 +8,7 @@ import {
   initials,
   nextOccurrence,
   repeatLabel,
+  reviewDue,
   taskAssignee,
   taskAssigneeLabel,
   taskInput,
@@ -242,5 +243,15 @@ describe("ResidentModel", () => {
       const nextDate = fromDateKey(next);
       expect(nextDate.getDate()).toBe(15);
     });
+  });
+});
+
+describe("reviewDue", () => {
+  const now = Date.parse("2026-10-25T12:00:00Z");
+  it("só convida depois de 7 dias da última revisão ou do primeiro uso", () => {
+    expect(reviewDue(undefined, now)).toBe(false);
+    expect(reviewDue("2026-10-25T10:00:00Z", now)).toBe(false);
+    expect(reviewDue("2026-10-19T12:00:00Z", now)).toBe(false);
+    expect(reviewDue("2026-10-18T12:00:00Z", now)).toBe(true);
   });
 });

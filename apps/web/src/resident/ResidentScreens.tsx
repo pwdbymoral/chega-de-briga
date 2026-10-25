@@ -439,20 +439,16 @@ const noticedOptions: { value: WeeklyReviewAnswers["feltNoticed"]; label: string
 export function WeeklyReviewScreen({
   householdId,
   gateway,
-  tasks,
   onDone,
 }: {
   householdId: string;
   gateway: ResidentGateway;
-  tasks: ResidentTask[];
   onDone: () => void;
 }) {
   const [feltHeavy, setFeltHeavy] = useState<WeeklyReviewAnswers["feltHeavy"]>();
   const [feltNoticed, setFeltNoticed] = useState<WeeklyReviewAnswers["feltNoticed"]>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const completed = tasks.filter((task) => task.completed).length;
-  const skipped = tasks.filter((task) => task.skipped).length;
 
   async function submit() {
     if (!feltHeavy || !feltNoticed) return;
@@ -473,10 +469,6 @@ export function WeeklyReviewScreen({
       <Card className={styles.detailCard}>
         <h1>Como foi essa semana?</h1>
         <p className={styles.helper}>Suas respostas são só suas — ninguém mais na casa vê o que você marcar aqui.</p>
-        <dl className={styles.detailFacts}>
-          <div><dt>Tarefas concluídas</dt><dd>{completed}</dd></div>
-          <div><dt>Tarefas puladas</dt><dd>{skipped}</dd></div>
-        </dl>
       </Card>
       <Card className={styles.formStack}>
         <SegmentedChoice legend="Essa semana pesou pra você?" name="felt-heavy" value={feltHeavy} options={heavyOptions} onChange={setFeltHeavy} />
@@ -806,7 +798,7 @@ export function ProfileScreen({
             <ul className={styles.historyList}>
               {reviews.map((review, index) => (
                 <li key={index} className={styles.historyRow}>
-                  <span>{heavyOptions.find((option) => option.value === review.feltHeavy)?.label} · {noticedOptions.find((option) => option.value === review.feltNoticed)?.label.toLocaleLowerCase("pt-BR")} que foi notado · {new Intl.DateTimeFormat("pt-BR", { day: "numeric", month: "short" }).format(new Date(review.reviewedAt))}</span>
+                  <span>{heavyOptions.find((option) => option.value === review.feltHeavy)?.label} · Notado: {noticedOptions.find((option) => option.value === review.feltNoticed)?.label.toLocaleLowerCase("pt-BR")} · {new Intl.DateTimeFormat("pt-BR", { day: "numeric", month: "short" }).format(new Date(review.reviewedAt))}</span>
                 </li>
               ))}
             </ul>
