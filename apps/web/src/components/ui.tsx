@@ -59,6 +59,28 @@ export function Checkbox({ label, detail, className = "", ...props }: CheckboxPr
   </label>;
 }
 
+type SegmentedChoiceProps<T extends string> = {
+  legend: string;
+  hideLegend?: boolean;
+  name: string;
+  value: T | undefined;
+  options: readonly { value: T; label: string }[];
+  onChange: (value: T) => void;
+  className?: string;
+};
+
+export function SegmentedChoice<T extends string>({ legend, hideLegend = false, name, value, options, onChange, className = "" }: SegmentedChoiceProps<T>) {
+  return <fieldset role="radiogroup" className={`${styles.segmented} ${className}`}>
+    <legend className={hideLegend ? styles.visuallyHidden : undefined}>{legend}</legend>
+    <div className={styles.segmentedOptions}>
+      {options.map((option) => <label key={option.value} className={styles.segmentedOption}>
+        <input type="radio" name={name} value={option.value} checked={value === option.value} onChange={() => onChange(option.value)} />
+        <span>{option.label}</span>
+      </label>)}
+    </div>
+  </fieldset>;
+}
+
 export function Card({ children, className = "", ...props }: HTMLAttributes<HTMLElement>) {
   return <article {...props} className={`${styles.card} ${className}`}>{children}</article>;
 }
