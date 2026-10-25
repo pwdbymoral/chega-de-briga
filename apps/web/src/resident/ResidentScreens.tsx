@@ -467,8 +467,10 @@ export function WeeklyReviewScreen({
   return (
     <div className={styles.screenStack}>
       <Card className={styles.detailCard}>
-        <h1>Como foi essa semana?</h1>
-        <p className={styles.helper}>Suas respostas são só suas — ninguém mais na casa vê o que você marcar aqui.</p>
+        <div className={`${styles.detailHeading} ${styles.compactHeading}`}>
+          <h2>Como foi essa semana?</h2>
+          <p>Suas respostas são só suas — ninguém mais na casa vê o que você marcar aqui.</p>
+        </div>
       </Card>
       <Card className={styles.formStack}>
         <SegmentedChoice legend="Essa semana pesou pra você?" name="felt-heavy" value={feltHeavy} options={heavyOptions} onChange={setFeltHeavy} />

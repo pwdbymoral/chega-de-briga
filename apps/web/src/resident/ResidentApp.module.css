@@ -142,6 +142,7 @@
 .detailCard, .profileCard, .houseCard, .inviteCard, .preferenceCard { display: grid; gap: 1rem; }
 .detailHeading { display: grid; gap: 0.55rem; }
 .detailHeading h2, .houseCard h2 { margin: 0; font: 900 clamp(1.8rem, 6vw, 2.7rem)/0.98 var(--font-display); letter-spacing: -0.05em; overflow-wrap: anywhere; }
+.compactHeading h2 { font: 900 1.25rem/1.1 var(--font-display); letter-spacing: -0.03em; }
 .detailHeading p, .houseCard p, .inviteCard > p { margin: 0; color: var(--color-text-muted); line-height: 1.5; }
 .detailFacts { display: grid; gap: 0; margin: 0; border-top: 1px solid var(--color-border-soft); }
 .detailFacts > div { display: grid; grid-template-columns: minmax(8rem, 0.8fr) minmax(0, 1.2fr); gap: 0.7rem; padding: 0.8rem 0; border-bottom: 1px solid var(--color-border-soft); }

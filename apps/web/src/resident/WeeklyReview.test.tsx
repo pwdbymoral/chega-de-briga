@@ -33,6 +33,8 @@ describe("tela de revisão semanal", () => {
     const gateway = { submitWeeklyReview, saveHousehold } as unknown as ResidentGateway;
     const onDone = vi.fn();
     render(<WeeklyReviewScreen householdId="house" gateway={gateway} onDone={onDone} />);
+    expect(screen.queryByRole("heading", { level: 1 })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Como foi essa semana?" })).toBeInTheDocument();
     await user.click(screen.getByRole("radio", { name: "Pesou um pouco" }));
     await user.click(screen.getByRole("radio", { name: "Sim" }));
     await user.click(screen.getByRole("button", { name: "Concluir revisão" }));
