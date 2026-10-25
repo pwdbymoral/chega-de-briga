@@ -10,7 +10,7 @@ import pg from "pg";
 const databaseUrl = process.env.TEST_DATABASE_URL;
 const tokenHash = (value) => createHash("sha256").update(value).digest("hex");
 
-test("PUT /api/households/:id/state persists completion and skip history", { skip: !databaseUrl, timeout: 30000 }, async () => {
+test("task completion/skip persists and is readable as history", { skip: !databaseUrl, timeout: 30000 }, async () => {
   const url = new URL(databaseUrl);
   assert.ok(["localhost", "127.0.0.1", "[::1]"].includes(url.hostname), "Use a disposable local database.");
   const schema = `household_state_test_${randomUUID().replaceAll("-", "")}`;
@@ -85,6 +85,57 @@ test("PUT /api/households/:id/state persists completion and skip history", { ski
     assert.equal(skipped.rows[0].outcome, "pulada");
     assert.equal(skipped.rows[0].completed_by_user_id, userId);
 
+    const historyResponse = await fetch(`${endpoint}/api/households/house-1/tasks/task-1/history`, {
+      headers: { Cookie: `cdb_resident=${sessionToken}` },
+    });
+    assert.equal(historyResponse.status, 200);
+    const history = await historyResponse.json();
+    assert.equal(history.entries.length, 1);
+    assert.equal(history.entries[0].kind, "occurrence");
+    assert.equal(history.entries[0].outcome, "concluida");
+    assert.equal(history.entries[0].completedByUserId, userId);
+    assert.deepEqual(history.members, [{ id: userId, name: "Ana" }]);
+    assert.ok(!JSON.stringify(history).match(/\d+\s*tarefas/), "history response must not contain aggregate per-person counts");
+
+    const reviewResponse = await fetch(`${endpoint}/api/households/house-1/review`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Origin: "http://localhost", Cookie: `cdb_resident=${sessionToken}` },
+      body: JSON.stringify({ feltHeavy: "pouco", feltNoticed: "sim" }),
+    });
+    assert.equal(reviewResponse.status, 204);
+    const membershipAfterReview = await database.query("SELECT last_reviewed_at FROM memberships WHERE user_id=$1 AND household_id='house-1'", [userId]);
+    assert.ok(membershipAfterReview.rows[0].last_reviewed_at, "last_reviewed_at should be set after a review");
+
+    const myReviewsResponse = await fetch(`${endpoint}/api/households/house-1/reviews/mine`, { headers: { Cookie: `cdb_resident=${sessionToken}` } });
+    assert.equal(myReviewsResponse.status, 200);
+    const myReviews = await myReviewsResponse.json();
+    assert.equal(myReviews.length, 1);
+    assert.deepEqual({ feltHeavy: myReviews[0].feltHeavy, feltNoticed: myReviews[0].feltNoticed }, { feltHeavy: "pouco", feltNoticed: "sim" });
+
+    const invalidReview = await fetch(`${endpoint}/api/households/house-1/review`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Origin: "http://localhost", Cookie: `cdb_resident=${sessionToken}` },
+      body: JSON.stringify({ feltHeavy: "muito", feltNoticed: "sim" }),
+    });
+    assert.equal(invalidReview.status, 422);
+
+    const renegotiatedTask = { ...task, dueDate: "2026-10-26", nextStartDate: "2026-10-26" };
+    const renegotiateResponse = await put({
+      version: 3,
+      data: { tasks: [renegotiatedTask, skippedTask], items: [] },
+      events: [{ id: "event-renegociada", type: "tarefa_renegociada", taskId: "task-1", occurrenceDate: "2026-10-26", scope: "series", note: "trocamos o dia" }],
+    });
+    assert.equal(renegotiateResponse.status, 200, await renegotiateResponse.text());
+    const renegotiated = await database.query("SELECT scope,changed_by,snapshot->>'renegotiationNote' AS note FROM task_versions WHERE task_id='task-1' AND event_id='event-renegociada'");
+    assert.equal(renegotiated.rowCount, 1);
+    assert.equal(renegotiated.rows[0].scope, "series");
+    assert.equal(renegotiated.rows[0].changed_by, userId);
+    assert.equal(renegotiated.rows[0].note, "trocamos o dia");
+
+    const historyAfterRenegotiation = await (await fetch(`${endpoint}/api/households/house-1/tasks/task-1/history`, { headers: { Cookie: `cdb_resident=${sessionToken}` } })).json();
+    const renegotiationEntry = historyAfterRenegotiation.entries.find((entry) => entry.eventType === "tarefa_renegociada");
+    assert.ok(renegotiationEntry, "history should include the renegotiation entry");
+    assert.equal(renegotiationEntry.note, "trocamos o dia");
   } finally {
     if (server && server.exitCode === null) { server.kill("SIGTERM"); await once(server, "exit"); }
     await database.end();

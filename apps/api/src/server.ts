@@ -6,7 +6,7 @@ import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
 import fastifyStatic from "@fastify/static";
 import webPush from "web-push";
-import { calculateAnalytics, isAcquisitionSource, type AnalyticsDataSet, type AnalyticsFilter } from "@chega-de-briga/domain";
+import { calculateAnalytics, isAcquisitionSource, isTaskEventType, type AnalyticsDataSet, type AnalyticsFilter } from "@chega-de-briga/domain";
 import { pool, id } from "./db.js";
 import { sendMail } from "./mail.js";
 import {
@@ -355,6 +355,24 @@ const localDate = (timezone: string) => {
   return `${part("year")}-${part("month")}-${part("day")}`;
 };
 
+async function sendPushToUser(userId: string, payload: { title: string; body: string; url: string; tag: string }) {
+  if (!vapidPublicKey || !process.env.VAPID_PRIVATE_KEY) return false;
+  const subscriptions = await pool.query("SELECT id,subscription_encrypted FROM push_subscriptions WHERE user_id=$1 AND invalid_at IS NULL", [userId]);
+  let delivered = false;
+  for (const subscription of subscriptions.rows) {
+    try {
+      const value = JSON.parse(decryptSecret(subscription.subscription_encrypted as string));
+      await webPush.sendNotification(value, JSON.stringify(payload));
+      delivered = true;
+    } catch (error) {
+      const status = (error as { statusCode?: number }).statusCode;
+      if (status === 404 || status === 410) await pool.query("UPDATE push_subscriptions SET invalid_at=now() WHERE id=$1", [subscription.id]);
+      else app.log.error({ subscription_id: subscription.id, error_name: error instanceof Error ? error.name : "unknown" }, "push delivery failed");
+    }
+  }
+  return delivered;
+}
+
 let reminderWorkerBusy = false;
 async function deliverReminders() {
   if (!vapidPublicKey || !process.env.VAPID_PRIVATE_KEY || reminderWorkerBusy) return;
@@ -384,28 +402,55 @@ async function deliverReminders() {
         return assignee === candidate.user_id;
       });
       if (!tasks.length) continue;
-      const subscriptions = await pool.query("SELECT id,subscription_encrypted FROM push_subscriptions WHERE user_id=$1 AND invalid_at IS NULL", [candidate.user_id]);
-      let delivered = false;
-      for (const subscription of subscriptions.rows) {
-        try {
-          const value = JSON.parse(decryptSecret(subscription.subscription_encrypted as string));
-          await webPush.sendNotification(value, JSON.stringify({
-            title: "Tarefas da sua casa",
-            body: tasks.slice(0, 4).map((task) => String(task.title ?? "Tarefa")).join(" · "),
-            url: "/casa",
-            tag: `cdb-task-reminder-${today}`,
-          }));
-          delivered = true;
-        } catch (error) {
-          const status = (error as { statusCode?: number }).statusCode;
-          if (status === 404 || status === 410) await pool.query("UPDATE push_subscriptions SET invalid_at=now() WHERE id=$1", [subscription.id]);
-          else app.log.error({ subscription_id: subscription.id, error_name: error instanceof Error ? error.name : "unknown" }, "push delivery failed");
-        }
-      }
+      const delivered = await sendPushToUser(candidate.user_id, {
+        title: "Tarefas da sua casa",
+        body: tasks.slice(0, 4).map((task) => String(task.title ?? "Tarefa")).join(" · "),
+        url: "/casa",
+        tag: `cdb-task-reminder-${today}`,
+      });
       if (delivered) await pool.query("INSERT INTO reminder_deliveries(user_id,timezone,local_date) VALUES($1,$2,$3) ON CONFLICT DO NOTHING", [candidate.user_id, timezone, today]);
     }
   } finally {
     reminderWorkerBusy = false;
+  }
+}
+
+let reviewReminderWorkerBusy = false;
+async function deliverReviewReminders() {
+  if (!vapidPublicKey || !process.env.VAPID_PRIVATE_KEY || reviewReminderWorkerBusy) return;
+  reviewReminderWorkerBusy = true;
+  try {
+    const candidates = await pool.query(
+      `SELECT u.id AS user_id,m.household_id,h.timezone
+       FROM users u JOIN memberships m ON m.user_id=u.id
+       JOIN households h ON h.id=m.household_id
+       JOIN user_preferences p ON p.user_id=u.id
+       JOIN accounts a ON a.id=u.account_id
+       WHERE u.status='ativo' AND a.email_verified_at IS NOT NULL AND p.review_reminder_enabled=true
+       AND p.reminder_time <= (now() AT TIME ZONE h.timezone)::time
+       AND (m.last_reviewed_at IS NULL OR m.last_reviewed_at < now() - interval '7 days')`,
+    );
+    for (const candidate of candidates.rows) {
+      const timezone = candidate.timezone as string;
+      const today = localDate(timezone);
+      const sent = await pool.query(
+        "SELECT 1 FROM review_reminder_deliveries WHERE user_id=$1 AND household_id=$2 AND timezone=$3 AND local_date=$4",
+        [candidate.user_id, candidate.household_id, timezone, today],
+      );
+      if (sent.rowCount) continue;
+      const delivered = await sendPushToUser(candidate.user_id, {
+        title: "Como foi a semana em casa?",
+        body: "Dá pra dar uma olhada rápida em como foi.",
+        url: "/casa/revisao",
+        tag: `cdb-weekly-review-${today}`,
+      });
+      if (delivered) await pool.query(
+        "INSERT INTO review_reminder_deliveries(user_id,household_id,timezone,local_date) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING",
+        [candidate.user_id, candidate.household_id, timezone, today],
+      );
+    }
+  } finally {
+    reviewReminderWorkerBusy = false;
   }
 }
 
@@ -983,6 +1028,22 @@ app.patch("/api/me/reminder", { preHandler: residentSession }, async (request, r
   return { enabled, time };
 });
 
+app.get("/api/me/review-reminder", { preHandler: residentSession }, async (request) => {
+  const result = await pool.query("SELECT review_reminder_enabled FROM user_preferences WHERE user_id=$1", [request.resident!.id]);
+  return { enabled: Boolean(result.rows[0]?.review_reminder_enabled) };
+});
+
+app.patch("/api/me/review-reminder", { preHandler: residentSession }, async (request, reply) => {
+  const body = bodyOf(request);
+  const enabled = body.enabled === true;
+  await pool.query(
+    `INSERT INTO user_preferences(user_id,review_reminder_enabled) VALUES($1,$2)
+     ON CONFLICT(user_id) DO UPDATE SET review_reminder_enabled=EXCLUDED.review_reminder_enabled`,
+    [request.resident!.id, enabled],
+  );
+  return { enabled };
+});
+
 app.get("/api/push/vapid-public-key", async (_request, reply) => {
   if (!vapidPublicKey) return bad(reply, 503, "unavailable", "Notificações não estão configuradas.");
   return { key: vapidPublicKey };
@@ -1085,6 +1146,7 @@ app.delete("/api/me", { preHandler: residentSession }, async (request, reply) =>
     await client.query("DELETE FROM user_preferences WHERE user_id=$1", [userId]);
     await client.query("DELETE FROM push_subscriptions WHERE user_id=$1", [userId]);
     await client.query("DELETE FROM reminder_deliveries WHERE user_id=$1", [userId]);
+    await client.query("DELETE FROM review_reminder_deliveries WHERE user_id=$1", [userId]);
     return "deleted";
   });
   if (deleted === false) return bad(reply, 409, "sole_owner", "Transfira a responsabilidade da casa antes de excluir a conta.");
@@ -1178,17 +1240,85 @@ app.get("/api/households/:id/state", { preHandler: residentSession }, async (req
   if (!(await requireHousehold(request, reply, householdId))) return;
   const result = await pool.query(
     `SELECT s.version,s.data,h.name AS household_name,h.first_value_at,
+      (SELECT last_reviewed_at FROM memberships WHERE household_id=h.id AND user_id=$2) AS last_reviewed_at,
       coalesce((SELECT jsonb_agg(jsonb_build_object('id',u.id,'name',u.name,'email',a.email,'role',m.role))
         FROM memberships m JOIN users u ON u.id=m.user_id JOIN accounts a ON a.id=u.account_id WHERE m.household_id=h.id),'[]'::jsonb) AS members,
       coalesce((SELECT jsonb_agg(jsonb_build_object('id',i.id,'email',g.email))
         FROM invitations i JOIN access_grants g ON g.id=i.access_id
         WHERE i.household_id=h.id AND i.status='pendente' AND i.expires_at>now()),'[]'::jsonb) AS invites
      FROM households h JOIN household_state s ON s.household_id=h.id WHERE h.id=$1`,
-    [householdId],
+    [householdId, request.resident!.id],
   );
   if (!result.rowCount) return bad(reply, 404, "not_found", "Casa não encontrada.");
   const row = result.rows[0]!;
-  return { version: row.version, name: row.household_name, data: { ...(row.data as object), members: row.members, invites: row.invites, firstValueAt: row.first_value_at ? new Date(row.first_value_at).toISOString() : undefined } };
+  return { version: row.version, name: row.household_name, data: { ...(row.data as object), members: row.members, invites: row.invites, firstValueAt: row.first_value_at ? new Date(row.first_value_at).toISOString() : undefined, lastReviewedAt: row.last_reviewed_at ? new Date(row.last_reviewed_at).toISOString() : undefined } };
+});
+
+app.get("/api/households/:id/tasks/:taskId/history", { preHandler: residentSession }, async (request, reply) => {
+  const { id: householdId, taskId } = request.params as { id: string; taskId: string };
+  if (!(await requireHousehold(request, reply, householdId))) return;
+  const [entries, members] = await Promise.all([
+    pool.query(
+      `WITH occ AS (
+        SELECT 'occurrence' AS kind, o.occurred_at, o.outcome, o.assigned_user_id, o.completed_by_user_id,
+          NULL::text AS scope, NULL::text AS changed_by, NULL::text AS event_type, NULL::text AS note
+        FROM task_occurrences o WHERE o.household_id=$1 AND o.task_id=$2
+        ORDER BY o.occurred_at DESC LIMIT 50
+      ), ver AS (
+        SELECT 'version' AS kind, v.created_at AS occurred_at, NULL::text AS outcome, NULL::text AS assigned_user_id, NULL::text AS completed_by_user_id,
+          v.scope, v.changed_by, e.event_type, v.snapshot->>'renegotiationNote' AS note
+        FROM task_versions v LEFT JOIN activity_events e ON e.id = v.event_id
+        WHERE v.household_id=$1 AND v.task_id=$2
+        ORDER BY v.created_at DESC LIMIT 50
+      )
+      SELECT * FROM occ UNION ALL SELECT * FROM ver ORDER BY occurred_at DESC LIMIT 50`,
+      [householdId, taskId],
+    ),
+    pool.query("SELECT u.id,u.name FROM memberships m JOIN users u ON u.id=m.user_id WHERE m.household_id=$1", [householdId]),
+  ]);
+  return {
+    entries: entries.rows.map((row) => ({
+      kind: row.kind as "occurrence" | "version",
+      occurredAt: new Date(row.occurred_at).toISOString(),
+      outcome: row.outcome as "concluida" | "pulada" | null,
+      assignedUserId: row.assigned_user_id as string | null,
+      completedByUserId: row.completed_by_user_id as string | null,
+      scope: row.scope as "occurrence" | "series" | null,
+      changedBy: row.changed_by as string | null,
+      eventType: row.event_type as string | null,
+      note: row.note as string | null,
+    })),
+    members: members.rows.map((row) => ({ id: row.id as string, name: row.name as string })),
+  };
+});
+
+const feltHeavyValues = ["nao", "pouco", "bastante"];
+const feltNoticedValues = ["sim", "nao_muito", "nao"];
+app.post("/api/households/:id/review", { preHandler: residentSession }, async (request, reply) => {
+  const householdId = (request.params as { id: string }).id;
+  if (!(await requireHousehold(request, reply, householdId))) return;
+  const body = bodyOf(request);
+  const feltHeavy = text(body, "feltHeavy");
+  const feltNoticed = text(body, "feltNoticed");
+  if (!feltHeavyValues.includes(feltHeavy) || !feltNoticedValues.includes(feltNoticed)) return bad(reply, 422, "validation", "Resposta inválida.");
+  await withTransaction(async (client) => {
+    await client.query(
+      "INSERT INTO weekly_reviews(id,household_id,user_id,felt_heavy,felt_noticed) VALUES($1,$2,$3,$4,$5)",
+      [id("review"), householdId, request.resident!.id, feltHeavy, feltNoticed],
+    );
+    await client.query("UPDATE memberships SET last_reviewed_at=now() WHERE user_id=$1 AND household_id=$2", [request.resident!.id, householdId]);
+  });
+  return reply.code(204).send();
+});
+
+app.get("/api/households/:id/reviews/mine", { preHandler: residentSession }, async (request, reply) => {
+  const householdId = (request.params as { id: string }).id;
+  if (!(await requireHousehold(request, reply, householdId))) return;
+  const result = await pool.query(
+    "SELECT felt_heavy,felt_noticed,reviewed_at FROM weekly_reviews WHERE household_id=$1 AND user_id=$2 ORDER BY reviewed_at DESC LIMIT 20",
+    [householdId, request.resident!.id],
+  );
+  return result.rows.map((row) => ({ feltHeavy: row.felt_heavy, feltNoticed: row.felt_noticed, reviewedAt: new Date(row.reviewed_at).toISOString() }));
 });
 
 app.put("/api/households/:id/state", { preHandler: residentSession }, async (request, reply) => {
@@ -1204,11 +1334,13 @@ app.put("/api/households/:id/state", { preHandler: residentSession }, async (req
     if (typeof item.id !== "string" || !item.id.trim() || item.id.length > 100) return true;
     if (item.type === "item_compra_adicionado") return typeof item.itemId !== "string" || !item.itemId.trim() || item.itemId.length > 100;
     const validDate = item.occurrenceDate === undefined || typeof item.occurrenceDate === "string" && datePattern.test(item.occurrenceDate);
-    const validScope = item.type !== "tarefa_editada" || ["occurrence", "series"].includes(String(item.scope));
-    return typeof item.taskId !== "string" || !item.taskId.trim() || item.taskId.length > 100 || !["tarefa_criada", "tarefa_concluida", "tarefa_pulada", "tarefa_editada"].includes(String(item.type)) || !validDate || !validScope;
+    const validScope = !["tarefa_editada", "tarefa_renegociada"].includes(String(item.type)) || ["occurrence", "series"].includes(String(item.scope));
+    const validNote = item.note === undefined || typeof item.note === "string" && item.note.length <= 280;
+    return typeof item.taskId !== "string" || !item.taskId.trim() || item.taskId.length > 100 || !isTaskEventType(item.type) || !validDate || !validScope || !validNote;
   })) {
     return bad(reply, 422, "validation", "Estado da casa inválido.");
   }
+  const renegotiatedTasks: { taskId: string; title: string }[] = [];
   const result = await withTransaction(async (client) => {
     const current = await client.query("SELECT version,data FROM household_state WHERE household_id=$1 FOR UPDATE", [householdId]);
     if (!current.rowCount) return { conflict: undefined };
@@ -1239,7 +1371,7 @@ app.put("/api/households/:id/state", { preHandler: residentSession }, async (req
     const eventTypes = new Map<string, string>();
     const createdEvents = new Set<string>();
     const trackedItemIds = new Set<string>();
-    for (const event of events as Array<{ id: string; type: string; taskId?: string; itemId?: string; occurrenceDate?: string; scope?: "occurrence" | "series" }>) {
+    for (const event of events as Array<{ id: string; type: string; taskId?: string; itemId?: string; occurrenceDate?: string; scope?: "occurrence" | "series"; note?: string }>) {
       if (event.type === "item_compra_adicionado") {
         trackedItemIds.add(event.itemId!);
         const saved = await client.query(
@@ -1271,13 +1403,15 @@ app.put("/api/households/:id/state", { preHandler: residentSession }, async (req
            ON CONFLICT(household_id,task_id,occurrence_key) DO NOTHING`,
           [id("occurrence"), event.id, householdId, taskId, occurrenceDate ?? "sem-data", occurrenceDate, event.type === "tarefa_concluida" ? "concluida" : "pulada", owner ?? null, request.resident!.id],
         );
-      } else if (event.type === "tarefa_criada" || event.type === "tarefa_editada") {
+      } else if (event.type === "tarefa_criada" || event.type === "tarefa_editada" || event.type === "tarefa_renegociada") {
         const snapshot = taskById.get(taskId) as Record<string, unknown> | undefined;
         const effectiveDate = occurrenceDate ?? (typeof snapshot?.dueDate === "string" ? snapshot.dueDate : null);
-        await client.query(
+        const withNote = event.note ? { ...snapshot, renegotiationNote: event.note } : snapshot;
+        const savedVersion = await client.query(
           "INSERT INTO task_versions(id,event_id,household_id,task_id,effective_from,scope,snapshot,changed_by) VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8) ON CONFLICT(event_id) DO NOTHING",
-          [id("task-version"), event.id, householdId, taskId, effectiveDate, event.type === "tarefa_criada" ? "series" : event.scope, JSON.stringify(snapshot), request.resident!.id],
+          [id("task-version"), event.id, householdId, taskId, effectiveDate, event.type === "tarefa_criada" ? "series" : event.scope, JSON.stringify(withNote), request.resident!.id],
         );
+        if (event.type === "tarefa_renegociada" && savedVersion.rowCount) renegotiatedTasks.push({ taskId, title: String(snapshot?.title ?? "Tarefa") });
       }
     }
     for (const task of data.tasks) {
@@ -1309,6 +1443,19 @@ app.put("/api/households/:id/state", { preHandler: residentSession }, async (req
   if ("invalid" in result) return bad(reply, 422, "validation", "A tarefa informada não pertence a esta casa.");
   if ("conflict" in result && !result.conflict) return bad(reply, 404, "not_found", "Casa não encontrada.");
   if ("conflict" in result) return reply.code(409).send({ code: "conflict", message: "A lista mudou em outro dispositivo. Atualize para ver a versão compartilhada.", request_id: request.id, current: result.conflict });
+  if (renegotiatedTasks.length) {
+    const others = await pool.query("SELECT user_id FROM memberships WHERE household_id=$1 AND user_id<>$2", [householdId, request.resident!.id]);
+    for (const task of renegotiatedTasks) {
+      for (const member of others.rows) {
+        sendPushToUser(member.user_id, {
+          title: "Combinado ajustado",
+          body: `${task.title} mudou — toque pra ver o que foi combinado.`,
+          url: `/casa/tarefas/${task.taskId}`,
+          tag: `cdb-renegotiation-${task.taskId}`,
+        }).catch((error) => app.log.error({ err: error, task_id: task.taskId }, "renegotiation push failed"));
+      }
+    }
+  }
   return result;
 });
 
@@ -1674,12 +1821,15 @@ const mailWorker = setInterval(() => { void deliverMail().catch((error) => app.l
 mailWorker.unref();
 const reminderWorker = setInterval(() => { void deliverReminders().catch((error) => app.log.error({ err: error }, "reminder worker failed")); }, 60_000);
 reminderWorker.unref();
+const reviewReminderWorker = setInterval(() => { void deliverReviewReminders().catch((error) => app.log.error({ err: error }, "review reminder worker failed")); }, 60_000);
+reviewReminderWorker.unref();
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, async () => {
     clearInterval(cleanup);
     clearInterval(mailWorker);
     clearInterval(reminderWorker);
+    clearInterval(reviewReminderWorker);
     await app.close();
     await pool.end();
     process.exit(0);
