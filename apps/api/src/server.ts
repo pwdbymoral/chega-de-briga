@@ -1266,7 +1266,7 @@ app.put("/api/households/:id/state", { preHandler: residentSession }, async (req
           ? rotation[Number(source.rotationIndex ?? 0) % rotation.length]
           : source?.ownerMode === "fixed" ? source.assigneeId : undefined;
         await client.query(
-          `INSERT INTO task_occurrences(id,event_id,household_id,task_id,occurrence_key,scheduled_for,outcome,assigned_user_id,resolved_by_user_id)
+          `INSERT INTO task_occurrences(id,event_id,household_id,task_id,occurrence_key,scheduled_for,outcome,assigned_user_id,completed_by_user_id)
            VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
            ON CONFLICT(household_id,task_id,occurrence_key) DO NOTHING`,
           [id("occurrence"), event.id, householdId, taskId, occurrenceDate ?? "sem-data", occurrenceDate, event.type === "tarefa_concluida" ? "concluida" : "pulada", owner ?? null, request.resident!.id],

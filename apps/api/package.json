@@ -10,7 +10,7 @@
     "start": "node dist/server.js",
     "migrate": "node dist/migrate.js",
     "test": "node --experimental-strip-types --test src/waitlist.test.mjs src/public-origin.test.mjs src/landing-metrics.test.mjs",
-    "test:integration": "pnpm build && node --test src/landing-integration.test.mjs",
+    "test:integration": "pnpm build && node --test src/landing-integration.test.mjs src/household-state.test.mjs",
     "check": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
