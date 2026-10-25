@@ -1,4 +1,4 @@
-import type { AuthGateway, AuthSession, InvitationPreview, ProductSyncEvent, ResidentGateway } from "../admin/contracts";
+import type { AuthGateway, AuthSession, InvitationPreview, ProductSyncEvent, ResidentGateway, TaskHistoryResponse, WeeklyReviewAnswers, WeeklyReviewEntry } from "../admin/contracts";
 import { api, ApiError, json } from "../api/http";
 import { clearCachedHouses } from "../resident/localCache";
 
@@ -16,6 +16,8 @@ export const residentGateway: ResidentGateway = {
   async deleteAccount() { await api("/api/me", json("DELETE")); },
   reminder() { return api("/api/me/reminder"); },
   async saveReminder(enabled, time) { await api("/api/me/reminder", json("PATCH", { enabled, time })); },
+  reviewReminder() { return api("/api/me/review-reminder"); },
+  async saveReviewReminder(enabled) { await api("/api/me/review-reminder", json("PATCH", { enabled })); },
   async vapidPublicKey() { return (await api<{ key: string }>("/api/push/vapid-public-key")).key; },
   async savePushSubscription(subscription) { await api("/api/push/subscriptions", json("POST", { subscription })); },
   async removePushSubscription(endpoint) { await api("/api/push/subscriptions", json("DELETE", { endpoint })); },
@@ -39,6 +41,15 @@ export const residentGateway: ResidentGateway = {
   },
   async transferResponsibility(householdId, userId) {
     return (await api<{ session: AuthSession }>(`/api/households/${encodeURIComponent(householdId)}/members/${encodeURIComponent(userId)}`, json("PATCH", { role: "responsavel" }))).session;
+  },
+  fetchTaskHistory(householdId, taskId) {
+    return api<TaskHistoryResponse>(`/api/households/${encodeURIComponent(householdId)}/tasks/${encodeURIComponent(taskId)}/history`);
+  },
+  async submitWeeklyReview(householdId, answers: WeeklyReviewAnswers) {
+    await api(`/api/households/${encodeURIComponent(householdId)}/review`, json("POST", answers));
+  },
+  fetchWeeklyReviews(householdId) {
+    return api<WeeklyReviewEntry[]>(`/api/households/${encodeURIComponent(householdId)}/reviews/mine`);
   },
 };
 

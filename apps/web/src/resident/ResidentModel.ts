@@ -34,6 +34,7 @@ export type HouseData = {
   items: ShoppingItem[];
   invites: HouseInvite[];
   firstValueAt?: string;
+  lastReviewedAt?: string;
 };
 export const weekDays = [
   { value: 0, label: "Dom" },

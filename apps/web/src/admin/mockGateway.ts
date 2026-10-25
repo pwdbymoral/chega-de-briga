@@ -12,6 +12,9 @@ import type {
   WaitlistAnalytics,
   WaitlistEntry,
   UserStatus,
+  TaskHistoryEntry,
+  WeeklyReviewAnswers,
+  WeeklyReviewEntry,
 } from "./contracts";
 import { makeHouseData, type HouseData } from "../resident/ResidentModel";
 
@@ -651,6 +654,16 @@ export function createDemoAuthGateway(data: DataSet): AuthGateway {
   const createHousePermissions = new Map<string, boolean>();
   const resetTokens = new Map<string, { userId: string; expiresAt: number }>();
   const houseStates = new Map<string, { version: number; data: HouseData }>();
+  const firstValueAtByHouse = new Map<string, string>();
+  const taskHistories = new Map<string, Map<string, TaskHistoryEntry[]>>();
+  const weeklyReviews = new Map<string, WeeklyReviewEntry[]>();
+  const historyFor = (householdId: string, taskId: string) => {
+    let house = taskHistories.get(householdId);
+    if (!house) { house = new Map(); taskHistories.set(householdId, house); }
+    let list = house.get(taskId);
+    if (!list) { list = []; house.set(taskId, list); }
+    return list;
+  };
   let currentUserId: string | undefined;
   const activeInvite = (invite: Invitation) =>
     invite.status === "pendente" && Date.parse(invite.expiresAt) > Date.now();
@@ -699,12 +712,47 @@ export function createDemoAuthGateway(data: DataSet): AuthGateway {
         }
         return snapshot;
       },
-      async saveHousehold(householdId, version, next) {
+      async saveHousehold(householdId, version, next, events = []) {
         await pause();
         const current = houseStates.get(householdId);
         if (current && current.version !== version) throw new DemoError("estado_invalido", "Os dados mudaram em outro dispositivo.");
         houseStates.set(householdId, { version: version + 1, data: next });
+        const actorId = currentUserId ?? "demo";
+        const occurredAt = new Date().toISOString();
+        if (!firstValueAtByHouse.has(householdId) && events.some((event) => event.type === "tarefa_criada" || event.type === "item_compra_adicionado")) {
+          firstValueAtByHouse.set(householdId, occurredAt);
+        }
+        for (const event of events) {
+          if (event.type === "item_compra_adicionado") continue;
+          const task = next.tasks.find((item) => item.id === event.taskId);
+          const list = historyFor(householdId, event.taskId);
+          if (event.type === "tarefa_concluida" || event.type === "tarefa_pulada") {
+            const owner = task?.ownerMode === "rotation" && task.rotation.length
+              ? task.rotation[Number(task.rotationIndex ?? 0) % task.rotation.length]
+              : task?.ownerMode === "fixed" ? task.assigneeId : undefined;
+            list.unshift({ kind: "occurrence", occurredAt, outcome: event.type === "tarefa_concluida" ? "concluida" : "pulada", assignedUserId: owner ?? null, completedByUserId: actorId, scope: null, changedBy: null, eventType: event.type, note: null });
+          } else {
+            list.unshift({ kind: "version", occurredAt, outcome: null, assignedUserId: null, completedByUserId: null, scope: event.scope ?? "series", changedBy: actorId, eventType: event.type, note: event.note ?? null });
+          }
+        }
         return { version: version + 1 };
+      },
+      async fetchTaskHistory(householdId, taskId) {
+        await pause();
+        const members = data.memberships
+          .filter((membership) => membership.householdId === householdId)
+          .map((membership) => ({ id: membership.userId, name: data.users.find((user) => user.id === membership.userId)?.name ?? "Morador" }));
+        return { entries: historyFor(householdId, taskId).slice(0, 50), members };
+      },
+      async submitWeeklyReview(householdId, answers: WeeklyReviewAnswers) {
+        await pause();
+        const list = weeklyReviews.get(householdId) ?? [];
+        list.unshift({ ...answers, reviewedAt: new Date().toISOString() });
+        weeklyReviews.set(householdId, list);
+      },
+      async fetchWeeklyReviews(householdId) {
+        await pause();
+        return (weeklyReviews.get(householdId) ?? []).slice(0, 20);
       },
       async updateProfileName(name) {
         await pause();
@@ -715,6 +763,8 @@ export function createDemoAuthGateway(data: DataSet): AuthGateway {
       async deleteAccount() { await pause(); currentUserId = undefined; },
       async reminder() { await pause(); return { enabled: false, time: "08:00" }; },
       async saveReminder() { await pause(); },
+      async reviewReminder() { await pause(); return { enabled: false }; },
+      async saveReviewReminder() { await pause(); },
       async vapidPublicKey() { await pause(); return ""; },
       async savePushSubscription() { await pause(); },
       async removePushSubscription() { await pause(); },

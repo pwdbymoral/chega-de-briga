@@ -4,7 +4,7 @@ import { Link, NavLink, useLocation, useNavigate } from "react-router";
 import type { AuthSession } from "../admin/contracts";
 import type { ProductSyncEvent, ResidentGateway, TaskSyncEvent } from "../admin/contracts";
 import { ApiError, errorMessage } from "../api/http";
-import { Avatar, Button, Checkbox, DatePicker, EmptyState, TextField } from "../components/ui";
+import { Avatar, Button, Checkbox, DatePicker, EmptyState, SegmentedChoice, Select, TextField } from "../components/ui";
 import { BottomSheet, ConfirmDialog } from "../components/ResidentOverlays";
 import { useToast } from "../components/Toast";
 import {
@@ -28,6 +28,7 @@ import {
   TaskDetailScreen,
   TaskEditor,
   TaskListScreen,
+  WeeklyReviewScreen,
 } from "./ResidentScreens";
 import styles from "./ResidentApp.module.css";
 import { clearCachedHouses, mergeHouseData, readCachedHouse, removeCachedHouse, writeCachedHouse, type CachedHouse, type SyncConflict } from "./localCache";
@@ -85,6 +86,11 @@ export function ResidentApp({
   const [editScopeTaskId, setEditScopeTaskId] = useState<string>();
   const [resumeTaskId, setResumeTaskId] = useState<string>();
   const [resumeDate, setResumeDate] = useState(dateKey(1));
+  const [taskEventVersion, setTaskEventVersion] = useState(0);
+  const [renegotiateTaskId, setRenegotiateTaskId] = useState<string>();
+  const [renegotiateDueDate, setRenegotiateDueDate] = useState(dateKey(1));
+  const [renegotiateAssigneeId, setRenegotiateAssigneeId] = useState("");
+  const [renegotiateNote, setRenegotiateNote] = useState("");
   const [editingItem, setEditingItem] = useState<ShoppingItem>();
   const [itemQuantity, setItemQuantity] = useState("");
   const [itemPriority, setItemPriority] = useState<ShoppingItem["priority"]>("next");
@@ -280,6 +286,7 @@ export function ResidentApp({
       ...current,
       [householdId]: nextData,
     }));
+    if (event && event.type !== "item_compra_adicionado") setTaskEventVersion((value) => value + 1);
     const previous = cacheRef.current[householdId];
     const pending: CachedHouse = {
       version: previous?.version ?? versionRef.current[householdId] ?? 0,
@@ -457,6 +464,25 @@ export function ResidentApp({
     navigate(task ? `/casa/tarefas/${task.id}?retorno=${encodeURIComponent(editorBackPath)}` : taskListPath);
   }
 
+  function renegotiateTask(taskId: string, changes: { dueDate?: string; assigneeId?: string }, note: string) {
+    const task = data.tasks.find((item) => item.id === taskId);
+    if (!task) return;
+    if (!navigator.onLine) {
+      showToast("Tarefas e rotinas ficam disponíveis somente para consulta sem conexão.");
+      return;
+    }
+    const updated: ResidentTask = {
+      ...task,
+      ...(changes.dueDate ? { dueDate: changes.dueDate } : {}),
+      ...(changes.assigneeId ? { assigneeId: changes.assigneeId } : {}),
+      occurrenceKey: undefined,
+      seriesBase: undefined,
+    };
+    const event: TaskSyncEvent = { id: newId("evento"), type: "tarefa_renegociada", taskId: task.id, occurrenceDate: task.occurrenceKey ?? task.dueDate, scope: "series", ...(note.trim() ? { note: note.trim() } : {}) };
+    if (!restoreTask(updated, event)) return;
+    showToast("Combinado renegociado.");
+  }
+
   function addShoppingItem(name: string, quantity: string, priority: ShoppingItem["priority"]) {
     const cleaned = name.trim();
     if (!cleaned) return;
@@ -579,6 +605,7 @@ export function ResidentApp({
 
   const pageTitle = route === "/casa/perfil" ? "Perfil"
     : route === "/casa/perfil/excluir" ? "Excluir conta"
+    : route === "/casa/revisao" ? "Revisão da semana"
     : route === "/casa/gestao" ? "Gerenciar casa"
       : route === "/casa/moradores" ? "Moradores e convites"
         : route === "/casa/tarefas" ? "Tarefas"
@@ -613,7 +640,16 @@ export function ResidentApp({
         {online && pendingHouses[householdId] && <div className={styles.syncNotice} role="status"><span>Há mudanças neste aparelho aguardando sincronização.</span><Button variant="quiet" onClick={() => void syncCachedHouse(householdId)}>Tentar sincronizar</Button></div>}
         {syncConflict && !syncConflictOpen && <Button variant="secondary" onClick={() => setSyncConflictOpen(true)}>Resolver mudanças em conflito</Button>}
         {!online && !cacheRef.current[householdId] ? <EmptyState title="Conecte-se para carregar esta casa." description="Depois de carregar uma vez, você poderá consultar tarefas e atualizar a lista de compras sem conexão." /> : route === "/casa" || route === "/casa/inicio" ? (
-          <HomeScreen name={session.user.name} tasks={data.tasks} items={data.items} members={data.members} showFirstUse={!data.firstValueAt && data.tasks.length === 0 && data.items.length === 0} onComplete={completeTask} onAssume={assumeTask} />
+          <HomeScreen
+            name={session.user.name}
+            tasks={data.tasks}
+            items={data.items}
+            members={data.members}
+            showFirstUse={!data.firstValueAt && data.tasks.length === 0 && data.items.length === 0}
+            showWeeklyReview={Boolean(data.firstValueAt) && (!data.lastReviewedAt || Date.now() - Date.parse(data.lastReviewedAt) >= 7 * 24 * 60 * 60 * 1000)}
+            onComplete={completeTask}
+            onAssume={assumeTask}
+          />
         ) : route === "/casa/tarefas" ? (
           <>
             <div className={styles.primaryAction}><Button onClick={() => navigate("/casa/tarefas/nova")}><Plus size={18} aria-hidden="true" /> Nova tarefa</Button></div>
@@ -621,6 +657,16 @@ export function ResidentApp({
           </>
         ) : route === "/casa/compras" ? (
           <ShoppingScreen items={data.items} onAdd={addShoppingItem} onBought={markBought} onEdit={(item) => { setEditingItem(item); setItemQuantity(item.quantity); setItemPriority(item.priority); }} />
+        ) : route === "/casa/revisao" ? (
+          <WeeklyReviewScreen
+            householdId={householdId}
+            gateway={gateway}
+            tasks={data.tasks}
+            onDone={() => {
+              setDataByHouse((previous) => ({ ...previous, [householdId]: { ...(previous[householdId] ?? data), lastReviewedAt: new Date().toISOString() } }));
+              navigate("/casa");
+            }}
+          />
         ) : isEditor ? (
           <div className={styles.screenStack}>
             <button className={styles.backButton} type="button" onClick={() => navigate(currentTask ? `/casa/tarefas/${currentTask.id}?retorno=${encodeURIComponent(editorBackPath)}` : taskListPath)}><ArrowLeft size={18} aria-hidden="true" /> Voltar</button>
@@ -630,6 +676,9 @@ export function ResidentApp({
           <TaskDetailScreen
             task={currentTask}
             members={data.members}
+            householdId={householdId}
+            gateway={gateway}
+            historyVersion={taskEventVersion}
             onBack={() => navigate(returnTo ?? taskListPath)}
             onEdit={openTaskEditor}
             onComplete={() => completeTask(currentTask?.id ?? "")}
@@ -637,13 +686,20 @@ export function ResidentApp({
             onSkip={() => skipTask(currentTask?.id ?? "")}
             onPause={() => pauseTask(currentTask?.id ?? "")}
             onResume={() => { setResumeTaskId(currentTask?.id); setResumeDate(dateKey(1)); }}
+            onRenegotiate={() => {
+              if (!currentTask) return;
+              setRenegotiateTaskId(currentTask.id);
+              setRenegotiateDueDate(currentTask.dueDate ?? dateKey(1));
+              setRenegotiateAssigneeId(currentTask.ownerMode === "fixed" ? currentTask.assigneeId ?? "" : "");
+              setRenegotiateNote("");
+            }}
             onEnd={() => {
               if (!currentTask) return;
               setConfirmation({ title: "Encerrar esta rotina?", description: "Novas ocorrências deixarão de ser criadas. A ocorrência que já está aberta continua disponível para concluir ou pular.", confirmLabel: "Encerrar rotina", onConfirm: () => { restoreTask({ ...currentTask, ended: true }); showToast("Rotina encerrada."); } });
             }}
           />
         ) : route === "/casa/perfil" ? (
-          <ProfileScreen session={session} gateway={gateway} onSave={(name) => {
+          <ProfileScreen session={session} householdId={householdId} gateway={gateway} onSave={(name) => {
             void gateway.updateProfileName(name).then(() => onSession({ ...session, user: { ...session.user, name } })).catch((error: unknown) => showToast(errorMessage(error, "Não foi possível atualizar o perfil. Revise o nome e tente novamente.")));
           }} onLogout={requestLogout} />
         ) : route === "/casa/perfil/excluir" ? (
@@ -714,6 +770,24 @@ export function ResidentApp({
         <DatePicker id="resume-date" label="Próxima ocorrência" required value={resumeDate} onChange={setResumeDate} />
       </BottomSheet>
 
+      <BottomSheet open={Boolean(renegotiateTaskId)} onClose={() => setRenegotiateTaskId(undefined)} title="Ajustar o combinado" footer={<><Button variant="secondary" onClick={() => setRenegotiateTaskId(undefined)}>Cancelar</Button><Button onClick={() => {
+        const id = renegotiateTaskId;
+        if (id) renegotiateTask(id, { dueDate: renegotiateDueDate, assigneeId: renegotiateAssigneeId || undefined }, renegotiateNote);
+        setRenegotiateTaskId(undefined);
+      }}>Salvar ajuste</Button></>}>
+        <p className={styles.sheetLead}>Isso é normal, só muda o acordo pra frente.</p>
+        <div className={styles.formStack}>
+          <DatePicker id="renegotiate-date" label="Novo prazo" value={renegotiateDueDate} onChange={setRenegotiateDueDate} />
+          {(() => {
+            const task = data.tasks.find((item) => item.id === renegotiateTaskId);
+            return task?.ownerMode === "fixed" ? (
+              <Select label="Novo responsável" value={renegotiateAssigneeId} options={data.members.map((member) => ({ value: member.id, label: member.name }))} onChange={setRenegotiateAssigneeId} />
+            ) : null;
+          })()}
+          <TextField id="renegotiate-note" label="Motivo (opcional)" maxLength={280} value={renegotiateNote} onChange={(event) => setRenegotiateNote(event.target.value)} />
+        </div>
+      </BottomSheet>
+
       <BottomSheet open={Boolean(editingItem)} onClose={() => setEditingItem(undefined)} title={`Editar ${editingItem?.name ?? "item"}`} footer={<><Button variant="secondary" onClick={() => setEditingItem(undefined)}>Cancelar</Button><Button onClick={saveShoppingEdit}>Salvar item</Button></>}>
         <div className={styles.formStack}>
           <TextField id="edit-item-quantity" label="Quantidade (opcional)" placeholder="Ex.: 1 kg" maxLength={50} value={itemQuantity} onChange={(event) => setItemQuantity(event.target.value)} />
@@ -731,10 +805,15 @@ export function ResidentApp({
               <strong>{item.label}</strong>
               <p>Seu aparelho: {localValue}</p>
               <p>Compartilhado: {sharedValue}</p>
-              <div className={styles.conflictChoices}>
-                <Button variant={conflictChoices[item.key] === "shared" ? "primary" : "secondary"} onClick={() => setConflictChoices((value) => ({ ...value, [item.key]: "shared" }))}>Usar compartilhada</Button>
-                <Button variant={conflictChoices[item.key] === "local" ? "primary" : "secondary"} onClick={() => setConflictChoices((value) => ({ ...value, [item.key]: "local" }))}>Manter deste aparelho</Button>
-              </div>
+              <SegmentedChoice
+                className={styles.conflictChoices}
+                legend={`Versão a usar: ${item.label}`}
+                hideLegend
+                name={`conflict-${item.key}`}
+                value={conflictChoices[item.key]}
+                options={[{ value: "shared", label: "Usar compartilhada" }, { value: "local", label: "Manter deste aparelho" }]}
+                onChange={(choice) => setConflictChoices((value) => ({ ...value, [item.key]: choice }))}
+              />
             </section>;
           })}
         </div>

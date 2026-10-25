@@ -1,5 +1,7 @@
 import type { HouseData } from "../resident/ResidentModel";
-import type { AcquisitionSource, PublicPage } from "@chega-de-briga/domain";
+import type { AcquisitionSource, PublicPage, ProductSyncEvent, TaskEventType } from "@chega-de-briga/domain";
+
+export type { TaskEventType, TaskSyncEvent, ProductSyncEvent } from "@chega-de-briga/domain";
 
 export type HouseholdRole = "responsavel" | "morador";
 export type AccessSource = "lista" | "convite_admin" | "convite_morador" | "publico";
@@ -262,6 +264,8 @@ export interface ResidentGateway {
   deleteAccount(): Promise<void>;
   reminder(): Promise<{ enabled: boolean; time: string }>;
   saveReminder(enabled: boolean, time: string): Promise<void>;
+  reviewReminder(): Promise<{ enabled: boolean }>;
+  saveReviewReminder(enabled: boolean): Promise<void>;
   vapidPublicKey(): Promise<string>;
   savePushSubscription(subscription: { endpoint: string; keys: { p256dh: string; auth: string } }): Promise<void>;
   removePushSubscription(endpoint?: string): Promise<void>;
@@ -272,17 +276,30 @@ export interface ResidentGateway {
   deleteHousehold(id: string): Promise<void>;
   removeMember(householdId: string, userId: string): Promise<void>;
   transferResponsibility(householdId: string, userId: string): Promise<AuthSession>;
+  fetchTaskHistory(householdId: string, taskId: string): Promise<TaskHistoryResponse>;
+  submitWeeklyReview(householdId: string, answers: WeeklyReviewAnswers): Promise<void>;
+  fetchWeeklyReviews(householdId: string): Promise<WeeklyReviewEntry[]>;
 }
 
-export type TaskSyncEvent = {
-  id: string;
-  type: "tarefa_criada" | "tarefa_concluida" | "tarefa_pulada" | "tarefa_editada";
-  taskId: string;
-  occurrenceDate?: string;
-  scope?: "occurrence" | "series";
+export type TaskHistoryEntry = {
+  kind: "occurrence" | "version";
+  occurredAt: string;
+  outcome: "concluida" | "pulada" | null;
+  assignedUserId: string | null;
+  completedByUserId: string | null;
+  scope: "occurrence" | "series" | null;
+  changedBy: string | null;
+  eventType: TaskEventType | null;
+  note: string | null;
 };
-export type ProductSyncEvent = TaskSyncEvent | {
-  id: string;
-  type: "item_compra_adicionado";
-  itemId: string;
+export type TaskHistoryResponse = {
+  entries: TaskHistoryEntry[];
+  members: { id: string; name: string }[];
 };
+
+export type WeeklyReviewAnswers = {
+  feltHeavy: "nao" | "pouco" | "bastante";
+  feltNoticed: "sim" | "nao_muito" | "nao";
+};
+export type WeeklyReviewEntry = WeeklyReviewAnswers & { reviewedAt: string };
+

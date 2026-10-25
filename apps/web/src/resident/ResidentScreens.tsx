@@ -21,9 +21,10 @@ import {
   SkipForward,
   Trash2,
   UsersRound,
+  X,
 } from "lucide-react";
 import { Link } from "react-router";
-import type { AuthSession, HouseholdRole, ResidentGateway } from "../admin/contracts";
+import type { AuthSession, HouseholdRole, ResidentGateway, TaskHistoryEntry, WeeklyReviewAnswers, WeeklyReviewEntry } from "../admin/contracts";
 import {
   Avatar,
   Button,
@@ -32,6 +33,7 @@ import {
   DatePicker,
   EmptyState,
   IconButton,
+  SegmentedChoice,
   Select,
   StatusBadge,
   TextField,
@@ -110,6 +112,7 @@ export function HomeScreen({
   items,
   members,
   showFirstUse = false,
+  showWeeklyReview = false,
   onComplete,
   onAssume,
 }: {
@@ -118,9 +121,11 @@ export function HomeScreen({
   items: ShoppingItem[];
   members: ResidentMember[];
   showFirstUse?: boolean;
+  showWeeklyReview?: boolean;
   onComplete: (id: string) => void;
   onAssume: (id: string) => void;
 }) {
+  const [reviewDismissed, setReviewDismissed] = useState(false);
   const todayTasks = tasks
     .filter((task) => !task.completed && !task.skipped && task.dueDate && task.dueDate <= dateKey())
     .sort((a, b) => (a.dueDate ?? "").localeCompare(b.dueDate ?? ""));
@@ -142,6 +147,13 @@ export function HomeScreen({
           <h2>Comece pelo que já precisa acontecer.</h2>
         </CardActions>
         <p>Registre uma tarefa da casa ou anote algo que está faltando. O combinado fica visível para todo mundo.</p>
+      </Card>}
+
+      {showWeeklyReview && !reviewDismissed && <Card className={styles.firstUseCard}>
+        <CardActions context="Revisão da semana" primary={{ label: "Revisar a semana", icon: CalendarDays, to: "/casa/revisao" }} secondary={[{ label: "Agora não", icon: X, onClick: () => setReviewDismissed(true) }]}>
+          <h2>Já faz uma semana — dá pra dar uma olhada rápida em como foi?</h2>
+        </CardActions>
+        <p>Leva um minuto. Só você vê suas respostas.</p>
       </Card>}
 
       <section className={styles.contentSection} aria-labelledby="home-tasks-title">
@@ -287,9 +299,34 @@ export function TaskListScreen({
   );
 }
 
+const historyLabel: Record<string, string> = {
+  tarefa_criada: "Criada",
+  tarefa_editada: "Editada",
+  tarefa_renegociada: "Renegociada",
+};
+function actorLabel(members: ResidentMember[], userId: string | null) {
+  return memberName(members, userId ?? undefined) ?? "morador removido";
+}
+function historySentence(entry: TaskHistoryEntry, members: ResidentMember[]) {
+  if (entry.kind === "occurrence") {
+    const actor = actorLabel(members, entry.completedByUserId);
+    return entry.outcome === "concluida" ? `Concluída por ${actor}` : `Pulada por ${actor}`;
+  }
+  const actor = actorLabel(members, entry.changedBy);
+  const label = historyLabel[entry.eventType ?? ""] ?? "Editada";
+  return entry.note ? `${label} por ${actor} — ${entry.note}` : `${label} por ${actor}`;
+}
+function historyBadge(entry: TaskHistoryEntry): { tone: "success" | "warning"; label: string } | null {
+  if (entry.kind === "occurrence") return entry.outcome === "concluida" ? { tone: "success", label: "Concluída" } : { tone: "warning", label: "Pulada" };
+  return entry.eventType === "tarefa_renegociada" ? { tone: "warning", label: "Renegociada" } : null;
+}
+
 export function TaskDetailScreen({
   task,
   members,
+  householdId,
+  gateway,
+  historyVersion,
   onBack,
   onEdit,
   onComplete,
@@ -298,9 +335,13 @@ export function TaskDetailScreen({
   onPause,
   onResume,
   onEnd,
+  onRenegotiate,
 }: {
   task?: ResidentTask;
   members: ResidentMember[];
+  householdId: string;
+  gateway: ResidentGateway;
+  historyVersion?: number;
   onBack: () => void;
   onEdit: () => void;
   onComplete: () => void;
@@ -309,7 +350,15 @@ export function TaskDetailScreen({
   onPause: () => void;
   onResume: () => void;
   onEnd: () => void;
+  onRenegotiate: () => void;
 }) {
+  const [history, setHistory] = useState<TaskHistoryEntry[]>([]);
+  useEffect(() => {
+    if (!task) return;
+    let current = true;
+    void gateway.fetchTaskHistory(householdId, task.id).then((response) => { if (current) setHistory(response.entries); }).catch(() => undefined);
+    return () => { current = false; };
+  }, [gateway, householdId, task?.id, historyVersion]);
   if (!task) return <EmptyState title="Esta tarefa não está disponível." description="Ela pode ter sido removida ou não estar mais disponível." />;
   return (
     <div className={styles.screenStack}>
@@ -344,15 +393,99 @@ export function TaskDetailScreen({
           <Card className={styles.actionList}>
             <CardActions context={`Rotina ${task.title}`} secondary={[
               { label: "Pular esta ocorrência", icon: SkipForward, onClick: onSkip },
+              { label: "Renegociar", icon: UsersRound, onClick: onRenegotiate },
               task.paused ? { label: "Retomar rotina", icon: Play, onClick: onResume } : { label: "Pausar rotina", icon: Pause, onClick: onPause },
               { label: "Encerrar rotina", icon: Trash2, destructive: true, onClick: onEnd },
             ]}>
               <h2 id="routine-actions-title">Esta rotina</h2>
-              <p className={styles.helper}>Pular resolve só este ciclo; a próxima data segue a frequência programada.</p>
+              <p className={styles.helper}>Pular resolve só este ciclo; renegociar ajusta responsável ou prazo sem parecer uma falha.</p>
             </CardActions>
           </Card>
         </section>
       )}
+      {history.length > 0 && (
+        <section className={styles.contentSection} aria-labelledby="history-title">
+          <Card className={styles.actionList}>
+            <h2 id="history-title">O que aconteceu</h2>
+            <ul className={styles.historyList}>
+              {history.map((entry, index) => {
+                const badge = historyBadge(entry);
+                return (
+                  <li key={index} className={styles.historyRow}>
+                    {badge && <StatusBadge tone={badge.tone}>{badge.label}</StatusBadge>}
+                    <span>{historySentence(entry, members)} · {new Intl.DateTimeFormat("pt-BR", { day: "numeric", month: "short" }).format(new Date(entry.occurredAt))}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          </Card>
+        </section>
+      )}
+    </div>
+  );
+}
+
+const heavyOptions: { value: WeeklyReviewAnswers["feltHeavy"]; label: string }[] = [
+  { value: "nao", label: "Não pesou" },
+  { value: "pouco", label: "Pesou um pouco" },
+  { value: "bastante", label: "Pesou bastante" },
+];
+const noticedOptions: { value: WeeklyReviewAnswers["feltNoticed"]; label: string }[] = [
+  { value: "sim", label: "Sim" },
+  { value: "nao_muito", label: "Não muito" },
+  { value: "nao", label: "Não" },
+];
+
+export function WeeklyReviewScreen({
+  householdId,
+  gateway,
+  tasks,
+  onDone,
+}: {
+  householdId: string;
+  gateway: ResidentGateway;
+  tasks: ResidentTask[];
+  onDone: () => void;
+}) {
+  const [feltHeavy, setFeltHeavy] = useState<WeeklyReviewAnswers["feltHeavy"]>();
+  const [feltNoticed, setFeltNoticed] = useState<WeeklyReviewAnswers["feltNoticed"]>();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const completed = tasks.filter((task) => task.completed).length;
+  const skipped = tasks.filter((task) => task.skipped).length;
+
+  async function submit() {
+    if (!feltHeavy || !feltNoticed) return;
+    setBusy(true);
+    setError("");
+    try {
+      await gateway.submitWeeklyReview(householdId, { feltHeavy, feltNoticed });
+      onDone();
+    } catch (reason) {
+      setError(errorMessage(reason, "Não foi possível registrar a revisão agora. Tente novamente."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className={styles.screenStack}>
+      <Card className={styles.detailCard}>
+        <h1>Como foi essa semana?</h1>
+        <p className={styles.helper}>Suas respostas são só suas — ninguém mais na casa vê o que você marcar aqui.</p>
+        <dl className={styles.detailFacts}>
+          <div><dt>Tarefas concluídas</dt><dd>{completed}</dd></div>
+          <div><dt>Tarefas puladas</dt><dd>{skipped}</dd></div>
+        </dl>
+      </Card>
+      <Card className={styles.formStack}>
+        <SegmentedChoice legend="Essa semana pesou pra você?" name="felt-heavy" value={feltHeavy} options={heavyOptions} onChange={setFeltHeavy} />
+        <SegmentedChoice legend="Você sentiu que o que você fez foi notado?" name="felt-noticed" value={feltNoticed} options={noticedOptions} onChange={setFeltNoticed} />
+        {error && <p className={styles.formError} role="alert">{error}</p>}
+        <div className={styles.formActions}>
+          <Button disabled={!feltHeavy || !feltNoticed || busy} onClick={() => void submit()}>{busy ? "Salvando…" : "Concluir revisão"}</Button>
+        </div>
+      </Card>
     </div>
   );
 }
@@ -539,11 +672,13 @@ export function ShoppingScreen({
 
 export function ProfileScreen({
   session,
+  householdId,
   gateway,
   onSave,
   onLogout,
 }: {
   session: AuthSession;
+  householdId: string;
   gateway: ResidentGateway;
   onSave: (name: string) => void;
   onLogout: () => void;
@@ -552,6 +687,9 @@ export function ProfileScreen({
   const [reminderEnabled, setReminderEnabled] = useState(false);
   const [reminderTime, setReminderTime] = useState("08:00");
   const [savingReminder, setSavingReminder] = useState(false);
+  const [reviewReminderEnabled, setReviewReminderEnabled] = useState(false);
+  const [savingReviewReminder, setSavingReviewReminder] = useState(false);
+  const [reviews, setReviews] = useState<WeeklyReviewEntry[]>([]);
   const { showToast } = useToast();
   useEffect(() => {
     let current = true;
@@ -560,44 +698,65 @@ export function ProfileScreen({
       setReminderEnabled(value.enabled);
       setReminderTime(value.time);
     }).catch(() => undefined);
+    void gateway.reviewReminder().then((value) => { if (current) setReviewReminderEnabled(value.enabled); }).catch(() => undefined);
+    if (householdId) void gateway.fetchWeeklyReviews(householdId).then((value) => { if (current) setReviews(value); }).catch(() => undefined);
     return () => { current = false; };
-  }, [gateway]);
+  }, [gateway, householdId]);
   function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!name.trim()) return;
     onSave(name.trim());
     showToast("Nome atualizado.");
   }
-  async function toggleReminder() {
-    setSavingReminder(true);
+  async function togglePushPreference(options: {
+    enabled: boolean;
+    setSaving: (value: boolean) => void;
+    setEnabled: (value: boolean) => void;
+    save: (enabled: boolean) => Promise<void>;
+    toastOn: string;
+    toastOff: string;
+  }) {
+    options.setSaving(true);
     try {
       if (import.meta.env.MODE === "demo") {
         showToast("Notificações ficam disponíveis no ambiente de produção.");
         return;
       }
-      if (reminderEnabled) {
-        await gateway.saveReminder(false, reminderTime);
-        setReminderEnabled(false);
-        showToast("Lembretes desativados.");
+      if (options.enabled) {
+        await options.save(false);
+        options.setEnabled(false);
+        showToast(options.toastOff);
         return;
       }
-      if (!("Notification" in window) || !("serviceWorker" in navigator)) throw new Error("Este navegador não oferece notificações. Abra o app em um navegador compatível para ativar os lembretes.");
-      const permission = await Notification.requestPermission();
-      if (permission !== "granted") throw new Error("Permita notificações no navegador para ativar os lembretes.");
-      const key = await gateway.vapidPublicKey();
-      const registration = await navigator.serviceWorker.ready;
-      const subscription = await registration.pushManager.getSubscription() ?? await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: decodeVapidKey(key) });
-      const value = subscription.toJSON();
-      if (!value.endpoint || !value.keys?.p256dh || !value.keys.auth) throw new Error("Não foi possível registrar este aparelho. Confira a permissão de notificações do navegador e tente novamente.");
-      await gateway.savePushSubscription({ endpoint: value.endpoint, keys: { p256dh: value.keys.p256dh, auth: value.keys.auth } });
-      await gateway.saveReminder(true, reminderTime);
-      setReminderEnabled(true);
-      showToast("Lembretes diários ativados.");
+      await ensurePushSubscription(gateway);
+      await options.save(true);
+      options.setEnabled(true);
+      showToast(options.toastOn);
     } catch (error) {
       showToast(errorMessage(error, "Não foi possível atualizar as notificações. Confira a permissão do navegador e tente novamente."));
     } finally {
-      setSavingReminder(false);
+      options.setSaving(false);
     }
+  }
+  function toggleReminder() {
+    return togglePushPreference({
+      enabled: reminderEnabled,
+      setSaving: setSavingReminder,
+      setEnabled: setReminderEnabled,
+      save: (enabled) => gateway.saveReminder(enabled, reminderTime),
+      toastOn: "Lembretes diários ativados.",
+      toastOff: "Lembretes desativados.",
+    });
+  }
+  function toggleReviewReminder() {
+    return togglePushPreference({
+      enabled: reviewReminderEnabled,
+      setSaving: setSavingReviewReminder,
+      setEnabled: setReviewReminderEnabled,
+      save: gateway.saveReviewReminder.bind(gateway),
+      toastOn: "Lembrete semanal ativado.",
+      toastOff: "Lembrete semanal desativado.",
+    });
   }
   async function saveReminderTime() {
     setSavingReminder(true);
@@ -639,6 +798,23 @@ export function ProfileScreen({
         <div className={styles.preferenceActions}><Button variant="secondary" disabled={savingReminder} onClick={() => void saveReminderTime()}>Salvar horário</Button><Button disabled={savingReminder} onClick={() => void toggleReminder()}>{savingReminder ? "Salvando…" : reminderEnabled ? "Desativar notificações" : "Ativar notificações"}</Button></div>
       </Card>
       <Card className={styles.preferenceCard}>
+        <div className={styles.preferenceIntro}><Bell size={21} aria-hidden="true" /><div><h2>Revisão semanal</h2><p>Um aviso toda semana pra revisar como os combinados estão indo.</p></div></div>
+        <div className={styles.preferenceActions}><Button disabled={savingReviewReminder} onClick={() => void toggleReviewReminder()}>{savingReviewReminder ? "Salvando…" : reviewReminderEnabled ? "Desativar lembrete" : "Ativar lembrete"}</Button></div>
+        {reviews.length > 0 && (
+          <>
+            <h3 className={styles.privateReviewsTitle}>Suas últimas revisões</h3>
+            <ul className={styles.historyList}>
+              {reviews.map((review, index) => (
+                <li key={index} className={styles.historyRow}>
+                  <span>{heavyOptions.find((option) => option.value === review.feltHeavy)?.label} · {noticedOptions.find((option) => option.value === review.feltNoticed)?.label.toLocaleLowerCase("pt-BR")} que foi notado · {new Intl.DateTimeFormat("pt-BR", { day: "numeric", month: "short" }).format(new Date(review.reviewedAt))}</span>
+                </li>
+              ))}
+            </ul>
+            <p className={styles.helper}>Só você vê esta lista.</p>
+          </>
+        )}
+      </Card>
+      <Card className={styles.preferenceCard}>
         <CardActions context="Seus dados" primary={{ label: "Baixar dados", icon: Download, onClick: () => void exportData() }} secondary={[{ label: "Excluir conta", icon: Trash2, destructive: true, to: "/casa/perfil/excluir" }]}>
           <h2>Seus dados</h2>
         </CardActions>
@@ -649,6 +825,18 @@ export function ProfileScreen({
       {import.meta.env.MODE === "demo" && <p className={styles.helper}>A sessão e estas alterações são locais. Nenhum dado de conta é enviado.</p>}
     </div>
   );
+}
+
+async function ensurePushSubscription(gateway: ResidentGateway) {
+  if (!("Notification" in window) || !("serviceWorker" in navigator)) throw new Error("Este navegador não oferece notificações. Abra o app em um navegador compatível para ativar os lembretes.");
+  const permission = await Notification.requestPermission();
+  if (permission !== "granted") throw new Error("Permita notificações no navegador para ativar os lembretes.");
+  const key = await gateway.vapidPublicKey();
+  const registration = await navigator.serviceWorker.ready;
+  const subscription = await registration.pushManager.getSubscription() ?? await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: decodeVapidKey(key) });
+  const value = subscription.toJSON();
+  if (!value.endpoint || !value.keys?.p256dh || !value.keys.auth) throw new Error("Não foi possível registrar este aparelho. Confira a permissão de notificações do navegador e tente novamente.");
+  await gateway.savePushSubscription({ endpoint: value.endpoint, keys: { p256dh: value.keys.p256dh, auth: value.keys.auth } });
 }
 
 function decodeVapidKey(value: string) {

@@ -150,6 +150,10 @@
 .formActions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.55rem; }
 .actionList { display: grid; gap: 0.25rem; padding: 0.5rem 0.8rem; }
 .actionList h2 { margin: 0 0 0.4rem; font: 900 1.25rem/1.1 var(--font-display); }
+.historyList { display: grid; gap: 0.6rem; margin: 0; padding: 0; list-style: none; }
+.historyRow { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; font-size: var(--type-sm); color: var(--color-text-muted); border-top: 1px solid var(--color-border-soft); padding-top: 0.6rem; }
+.historyRow:first-child { border-top: none; padding-top: 0; }
+.privateReviewsTitle { margin: 0.4rem 0 0; font: 900 1rem/1.1 var(--font-display); }
 
 .formStack { display: grid; gap: 1rem; min-width: 0; }
 .formStack > button[type="submit"] { justify-self: end; }
